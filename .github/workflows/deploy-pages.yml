@@ -37,9 +37,11 @@ jobs:
         run: npm ci
 
       - name: 🏗️ Build for GitHub Pages
-        run: npm run build
+        run: |
+          npx vite build
+          echo "✅ Build complete"
+          ls dist/
         env:
-          # GitHub Pages serves from subpath by default — using './' base handles it
           NODE_ENV: production
 
       - name: 📁 Setup GitHub Pages
