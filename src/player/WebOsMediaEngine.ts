@@ -17,7 +17,7 @@ export class WebOsMediaEngine implements ITvPlayerEngine {
   private videoElement: HTMLVideoElement | null = null;
   private events: PlayerEvents = {};
   private _isPlaying = false;
-  private currentAspectRatio: AspectRatioMode = 'fill';
+  private currentAspectRatio: AspectRatioMode = 'fit';
   private bufferProfile: BufferProfile = 'balanced';
   public currentUrl = '';
   private volumeLevel = 1.0;

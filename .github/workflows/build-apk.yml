@@ -223,6 +223,7 @@ jobs:
           import android.content.pm.ActivityInfo;
           import android.os.Build;
           import android.os.Bundle;
+          import android.view.KeyEvent;
           import android.view.View;
           import android.view.WindowInsets;
           import android.view.WindowInsetsController;
@@ -309,7 +310,7 @@ jobs:
                                   });
                               }
 
-                               @JavascriptInterface
+                              @JavascriptInterface
                               public void exitApp() {
                                   runOnUiThread(() -> finishAffinity());
                               }
@@ -327,20 +328,58 @@ jobs:
                   }
               }
 
+              private long lastBackPressTime = 0;
+
               private void triggerBackInWebView() {
-                  try {
-                      WebView webView = this.getBridge().getWebView();
-                      if (webView != null) {
-                          webView.evaluateJavascript(
-                              "(function() { " +
-                              "  window.dispatchEvent(new CustomEvent('android-back-button')); " +
-                              "})();",
-                              null
-                          );
-                      }
-                  } catch (Exception e) {
-                      e.printStackTrace();
+                  long now = System.currentTimeMillis();
+                  if (now - lastBackPressTime < 350) {
+                      return;
                   }
+                  lastBackPressTime = now;
+
+                  runOnUiThread(() -> {
+                      try {
+                          WebView webView = this.getBridge().getWebView();
+                          if (webView != null) {
+                              webView.evaluateJavascript(
+                                  "(function() { " +
+                                  "  window.dispatchEvent(new CustomEvent('android-back-button')); " +
+                                  "})();",
+                                  null
+                              );
+                          }
+                      } catch (Exception e) {
+                          e.printStackTrace();
+                      }
+                  });
+              }
+
+              @Override
+              public boolean dispatchKeyEvent(KeyEvent event) {
+                  if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+                      if (event.getAction() == KeyEvent.ACTION_UP) {
+                          triggerBackInWebView();
+                      }
+                      return true;
+                  }
+                  return super.dispatchKeyEvent(event);
+              }
+
+              @Override
+              public boolean onKeyDown(int keyCode, KeyEvent event) {
+                  if (keyCode == KeyEvent.KEYCODE_BACK) {
+                      return true;
+                  }
+                  return super.onKeyDown(keyCode, event);
+              }
+
+              @Override
+              public boolean onKeyUp(int keyCode, KeyEvent event) {
+                  if (keyCode == KeyEvent.KEYCODE_BACK) {
+                      triggerBackInWebView();
+                      return true;
+                  }
+                  return super.onKeyUp(keyCode, event);
               }
 
               @Override

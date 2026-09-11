@@ -240,14 +240,17 @@ html[data-device="mobile"] .tv-focused-subtle {
   html[data-device="mobile"] video {
     width: 100% !important;
     height: 100% !important;
+    object-fit: contain;
+    background-color: #000;
   }
 
-  /* When in fullscreen or cover fill mode on mobile, fill edge-to-edge */
+  /* When in fullscreen or standard video containers on mobile, maintain full 100% frame without cropping */
   html[data-device="mobile"] [data-fullscreen="true"] video,
   html[data-device="mobile"] .video-fill-screen video {
-    object-fit: cover !important;
-    width: 100vw !important;
-    height: 100vh !important;
+    object-fit: contain;
+    width: 100% !important;
+    height: 100% !important;
+    background-color: #000;
   }
 
   /* Channel grid: 1 col on phone, 2 on tablet */

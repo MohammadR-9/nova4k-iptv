@@ -63,8 +63,8 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
   const pendingResumeRef = useRef<number | null>(null);
   // Debounce: only show spinner after 1.2s of continuous buffering
   const bufferingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Aspect ratio and player engine (mobile defaults to fill to cover screen edge-to-edge)
-  const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>(isMobileDevice() ? 'fill' : 'fit');
+  // Aspect ratio and player engine (defaults to fit to show 100% video frame without cropping)
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>('fit');
   const [activeEngine, setActiveEngine] = useState<PlayerEngineType>('exoplayer');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -72,7 +72,7 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
   useEffect(() => {
     if (isMobileDevice()) {
       ScreenOrientationManager.enterLandscapeImmersive();
-      player.current.setAspectRatio('fill');
+      player.current.setAspectRatio('fit');
     }
     return () => {
       if (isMobileDevice()) {

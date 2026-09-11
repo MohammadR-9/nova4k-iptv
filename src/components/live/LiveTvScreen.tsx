@@ -94,7 +94,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
     return preset === 'FAST' ? 'turbo' : preset === 'STABLE' ? 'anti-freeze' : 'balanced';
   });
   const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>(() => {
-    return (localStorage.getItem('nova_default_aspect_ratio') as AspectRatioMode) || 'fill';
+    return (localStorage.getItem('nova_default_aspect_ratio') as AspectRatioMode) || 'fit';
   });
   const [recoveryToast, setRecoveryToast] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -508,8 +508,9 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
       setActiveChannel(channelToPlay);
     }
     setIsFullscreen(true);
-    setAspectRatio('fill');
-    player.current.setAspectRatio('fill');
+    const preferredRatio = (localStorage.getItem('nova_default_aspect_ratio') as AspectRatioMode) || 'fit';
+    setAspectRatio(preferredRatio);
+    player.current.setAspectRatio(preferredRatio);
     await ScreenOrientationManager.enterLandscapeImmersive();
     resetMobileOverlayTimer();
   };
