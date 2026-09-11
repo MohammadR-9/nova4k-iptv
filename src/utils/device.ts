@@ -1,61 +1,26 @@
-export type DeviceMode = 'tv' | 'mobile';
+﻿/**
+ * Universal device detection: Mobile/Tablet vs Smart TV
+ */
+export const isMobileDevice = (): boolean => {
+  if (typeof window === 'undefined') return false;
 
-export class DeviceDetector {
-  private static OVERRIDE_KEY = 'nova_device_mode_override';
+  // 1. Explicit TV User Agents (Samsung Tizen, LG webOS, Android TV, Fire TV)
+  const ua = navigator.userAgent;
+  const isTv = /Tizen|SmartTV|SMART-TV|webOS|NetCast|BRAVIA|Viera|HbbTV|Android TV|GoogleTV|LargeScreen|AFTB|AFTM|AFTT/i.test(ua);
+  if (isTv) return false;
 
-  /**
-   * Get current device mode: 'tv' or 'mobile'
-   */
-  public static getDeviceMode(): DeviceMode {
-    if (typeof window === 'undefined') return 'tv';
+  // 2. Tizen or WebOS hardware SDKs
+  if ((window as any).tizen || (window as any).webapis) return false;
 
-    // 1. Check user manual override in localStorage
-    const override = localStorage.getItem(this.OVERRIDE_KEY);
-    if (override === 'tv' || override === 'mobile') {
-      return override;
-    }
+  // 3. Document attribute override
+  const attr = document.documentElement.getAttribute('data-device');
+  if (attr === 'mobile') return true;
+  if (attr === 'tv') return false;
 
-    // 2. Hardware TV checks (Tizen, webOS, Android TV)
-    if ((window as any).tizen || (window as any).webOS) return 'tv';
+  // 4. Mobile / Tablet user agents or touch screen with compact viewport
+  const isMobileUa = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  const hasTouch = 'ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+  const isCompact = (window.innerWidth <= 1024 && window.innerHeight <= 600) || window.innerWidth < 768;
 
-    const ua = navigator.userAgent || '';
-    const tvKeywords = [
-      'Tizen', 'SMART-TV', 'SmartTV', 'webOS', 'NetCast', 
-      'BRAVIA', 'Viera', 'HbbTV', 'Android TV', 'AndroidTV', 
-      'AFTM', 'AFTT', 'AFTB', 'AFTS', 'FireTV', 'Roku', 'AppleTV'
-    ];
-    const isTvUa = tvKeywords.some(kw => new RegExp(kw, 'i').test(ua));
-    if (isTvUa) return 'tv';
-
-    // 3. Large screens (> 1024px) always default to TV mode
-    if (window.innerWidth > 1024) {
-      return 'tv';
-    }
-
-    // 4. Mobile & Tablet screens (<= 1024px)
-    return 'mobile';
-  }
-
-  public static isMobile(): boolean {
-    return this.getDeviceMode() === 'mobile';
-  }
-
-  public static isTV(): boolean {
-    return this.getDeviceMode() === 'tv';
-  }
-
-  public static setDeviceModeOverride(mode: DeviceMode | 'auto'): void {
-    if (mode === 'auto') {
-      localStorage.removeItem(this.OVERRIDE_KEY);
-    } else {
-      localStorage.setItem(this.OVERRIDE_KEY, mode);
-    }
-    const current = this.getDeviceMode();
-    document.documentElement.setAttribute('data-device', current);
-    window.dispatchEvent(new Event('device-mode-changed'));
-  }
-
-  public static getOverride(): string | null {
-    return localStorage.getItem(this.OVERRIDE_KEY);
-  }
-}
+  return Boolean(isMobileUa || (hasTouch && isCompact));
+};

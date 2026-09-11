@@ -116,7 +116,7 @@ jobs:
                       android:label="@string/title_activity_main"
                       android:theme="@style/AppTheme.NoActionBarLaunch"
                       android:launchMode="singleTask"
-                      android:screenOrientation="sensorLandscape"
+                      android:screenOrientation="sensor"
                       android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
@@ -138,6 +138,37 @@ jobs:
                   </provider>
               </application>
           </manifest>
+          EOF
+
+          mkdir -p android/app/src/main/java/com/nova/iptvpro
+          cat << 'EOF' > android/app/src/main/java/com/nova/iptvpro/MainActivity.java
+          package com.nova.iptvpro;
+
+          import android.os.Bundle;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  try {
+                      WebView webView = this.getBridge().getWebView();
+                      if (webView != null) {
+                          WebSettings settings = webView.getSettings();
+                          settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+                          settings.setMediaPlaybackRequiresUserGesture(false);
+                          settings.setDomStorageEnabled(true);
+                          settings.setDatabaseEnabled(true);
+                          settings.setAllowFileAccess(true);
+                          settings.setAllowContentAccess(true);
+                      }
+                  } catch (Exception e) {
+                      e.printStackTrace();
+                  }
+              }
+          }
           EOF
           echo "✅ Android TV & Mobile dual configuration applied"
 

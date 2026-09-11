@@ -10,6 +10,7 @@ import { VodResumeService, ResumePoint } from '../../services/vodResume.service'
 import { spatialNav } from '../../navigation/spatialNav';
 import { TV_KEYS } from '../../navigation/keycodes';
 import { AiMovieAdvisorModal } from '../vod/AiMovieAdvisorModal';
+import { isMobileDevice } from '../../utils/device';
 
 export interface SeriesScreenProps {
   onBackToHome: () => void;
@@ -21,6 +22,13 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
   const [selectedCatId, setSelectedCatId] = useState<string>('all');
   const [allSeries, setAllSeries] = useState<SeriesItem[]>([]);
   const [focusedSeries, setFocusedSeries] = useState<SeriesItem | null>(null);
+  const [isMobile, setIsMobile] = useState<boolean>(isMobileDevice);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(isMobileDevice());
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [catSearchQuery, setCatSearchQuery] = useState('');
   const [quickFilter, setQuickFilter] = useState<'all' | 'trending' | 'latest' | 'top_rated' | 'arabic'>('all');
@@ -502,11 +510,41 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
       )}
 
       {/* =========================================================================
-          3. MAIN 2-COLUMN BODY (Categories Sidebar & Series Posters Grid)
+          3. MAIN BODY (Mobile Horizontal Bar / TV 2-Column with Sidebar)
          ========================================================================= */}
+      {/* MOBILE HORIZONTAL CATEGORIES BAR */}
+      {isMobile && (
+        <div className="w-full px-3 py-2 bg-slate-950/90 border-b border-white/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0 z-10">
+          <button
+            onClick={() => handleSelectCategory('all')}
+            className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              selectedCatId === 'all'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-black shadow-md'
+                : 'bg-white/5 border border-white/5 text-slate-300'
+            }`}
+          >
+            الكل ({allSeries.length})
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat.category_id}
+              onClick={() => handleSelectCategory(cat.category_id)}
+              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all truncate ${
+                selectedCatId === cat.category_id
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-black shadow-md'
+                  : 'bg-white/5 border border-white/5 text-slate-300'
+              }`}
+            >
+              {cat.category_name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex-1 flex flex-row overflow-hidden">
         
-        {/* RIGHT SIDEBAR: VERTICAL CATEGORIES */}
+        {/* RIGHT SIDEBAR: VERTICAL CATEGORIES (Smart TV Only) */}
+        {!isMobile && (
         <aside className="w-72 md:w-80 h-full border-l border-white/10 bg-slate-950/70 backdrop-blur-xl flex flex-col shrink-0">
           
           {/* Category Search Header */}
@@ -579,6 +617,7 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
             {categories.length} باقة وتصنيف
           </div>
         </aside>
+        )}
 
         {/* LEFT COLUMN: MAIN POSTERS GRID */}
         <main className="flex-1 h-full overflow-y-auto p-4 md:p-6 flex flex-col space-y-4 scrollbar-thin scrollbar-thumb-white/10">
@@ -656,7 +695,7 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5 md:gap-4 pb-12">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-3.5 pb-24">
               {filteredSeries.map((series, idx) => {
                 const isFav = favorites.includes(series.series_id);
                 const seasonCount = series.seasons?.length || 1;

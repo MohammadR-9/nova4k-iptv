@@ -9,8 +9,9 @@ const config: CapacitorConfig = {
     // On a physical device or MuMuPlayer emulator, use the dev server URL for live reload during development.
     // Comment out the url below for production APK builds.
     // url: 'http://192.168.1.217:5173',
-    // cleartext: true,
-    androidScheme: 'https',
+    // HTTP scheme ensures IPTV streams (http://) match origin without mixed-content security blocks
+    androidScheme: 'http',
+    cleartext: true,
   },
   android: {
     allowMixedContent: true,

@@ -207,10 +207,11 @@ export class HlsProEngine implements ITvPlayerEngine {
         }
       }, 2200);
 
-      // In browser mode, route external HTTP/HTTPS IPTV streams through the Vite CORS proxy ONLY if needed.
-      // On Samsung Tizen Smart TVs, fetch directly using TV native security exemptions.
+      // In Vite dev server (localhost:5173), route external HTTP/HTTPS IPTV streams through the Vite CORS proxy.
+      // On Android APK, Samsung Tizen Smart TVs, LG webOS, and production builds, play directly!
       let streamUrl = url;
-      if (typeof window !== 'undefined' && !((window as any).tizen) && url.startsWith('http')) {
+      const isViteDevServer = typeof window !== 'undefined' && window.location.port === '5173';
+      if (isViteDevServer && url.startsWith('http')) {
         const isDirectCdn = url.includes('test-streams.mux.dev') ||
                             url.includes('akamaized.net') ||
                             url.includes('apple.com') ||

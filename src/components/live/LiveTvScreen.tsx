@@ -24,6 +24,7 @@ import { DvrRecordingBar } from './DvrRecordingBar';
 import { AudioSettingsModal } from './AudioSettingsModal';
 import { SubtitleDubbingModal } from './SubtitleDubbingModal';
 import { ChannelReorderModal } from './ChannelReorderModal';
+import { isMobileDevice } from '../../utils/device';
 
 interface LiveTvScreenProps {
   onBackToHome: () => void;
@@ -47,23 +48,14 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
   const [activeChannel, setActiveChannel] = useState<LiveChannel | null>(initialCurated[0] || null);
 
   // Mobile vs TV Device Mode detection
-  const [isMobileMode, setIsMobileMode] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return document.documentElement.getAttribute('data-device') === 'mobile' || window.innerWidth < 768;
-  });
+  const [isMobileMode, setIsMobileMode] = useState<boolean>(isMobileDevice);
 
   useEffect(() => {
     const checkMode = () => {
-      const isMobile = document.documentElement.getAttribute('data-device') === 'mobile' || window.innerWidth < 768;
-      setIsMobileMode(isMobile);
+      setIsMobileMode(isMobileDevice());
     };
     window.addEventListener('resize', checkMode);
-    const observer = new MutationObserver(checkMode);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-device'] });
-    return () => {
-      window.removeEventListener('resize', checkMode);
-      observer.disconnect();
-    };
+    return () => window.removeEventListener('resize', checkMode);
   }, []);
 
   // Search & Filter

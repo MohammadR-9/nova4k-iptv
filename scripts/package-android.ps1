@@ -81,7 +81,7 @@ $manifestLines = @(
 '            android:label="@string/title_activity_main"',
 '            android:theme="@style/AppTheme.NoActionBarLaunch"',
 '            android:launchMode="singleTask"',
-'            android:screenOrientation="sensorLandscape"',
+'            android:screenOrientation="sensor"',
 '            android:exported="true">',
 '            <intent-filter>',
 '                <action android:name="android.intent.action.MAIN" />',

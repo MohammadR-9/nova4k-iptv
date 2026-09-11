@@ -9,6 +9,7 @@ import { UserAccount, ScreenType } from '../../types/iptv.types';
 import { spatialNav } from '../../navigation/spatialNav';
 import { FavoritesService } from '../../services/favorites.service';
 import { XtreamService } from '../../services/xtream.service';
+import { isMobileDevice } from '../../utils/device';
 
 interface HomeDashboardProps {
   account: UserAccount;
@@ -94,6 +95,201 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     return () => clearTimeout(timer);
   }, []);
 
+  const [isMobile, setIsMobile] = useState<boolean>(isMobileDevice);
+
+  useEffect(() => {
+    const handleDeviceChange = () => setIsMobile(isMobileDevice());
+    window.addEventListener('resize', handleDeviceChange);
+    return () => window.removeEventListener('resize', handleDeviceChange);
+  }, []);
+
+  // 📱 DEDICATED COMPACT MOBILE HOME DASHBOARD
+  if (isMobile) {
+    return (
+      <div className="relative w-full h-full min-h-screen flex flex-col bg-oled overflow-y-auto select-none font-sans text-white p-3.5 pb-24">
+        {/* Background Subtle Glows */}
+        <div className="absolute -top-20 -right-20 w-72 h-72 bg-nova-cyan/15 rounded-full blur-[80px] pointer-events-none" />
+        <div className="absolute top-1/2 -left-20 w-64 h-64 bg-nova-purple/15 rounded-full blur-[80px] pointer-events-none" />
+
+        {/* 1. Mobile Top Branding Bar */}
+        <header className="w-full flex items-center justify-between pb-2.5 border-b border-white/10 shrink-0 z-10">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-400 to-purple-600 p-0.5 shadow-md flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-base font-black tracking-wider text-white">
+                  NOVA <span className="text-nova-cyan">4K</span>
+                </h1>
+                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-gradient-to-r from-purple-600 to-cyan-500 text-white font-mono">
+                  ULTRA
+                </span>
+              </div>
+              <p className="text-[9px] font-bold text-emerald-400 font-mono flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>{account.username} • {account.daysRemaining} يوم</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onOpenDiagnostics}
+              className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-amber-400 active:scale-95 transition-all cursor-pointer"
+              title="التشخيص ومحرك البث"
+            >
+              <Activity className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-nova-cyan active:scale-95 transition-all cursor-pointer"
+              title="الإعدادات"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
+        </header>
+
+        {/* 2. Compact Live Ticker */}
+        <div 
+          onClick={() => onNavigate('live')}
+          className="w-full my-2.5 px-3 py-2 rounded-xl bg-surface-elevated/90 border border-white/10 flex items-center justify-between gap-2 z-10 cursor-pointer active:scale-[0.99] transition-transform"
+        >
+          <div className="flex items-center gap-2 overflow-hidden">
+            <span className="px-2 py-0.5 rounded-md bg-accent-live/20 border border-accent-live/40 text-accent-live text-[10px] font-black shrink-0 font-mono flex items-center gap-1">
+              <Radio className="w-3 h-3 animate-pulse" />
+              <span>LIVE</span>
+            </span>
+            <span className="text-xs font-bold text-white truncate">
+              {currentEvent.title}
+            </span>
+          </div>
+          <ChevronLeft className="w-4 h-4 text-nova-cyan shrink-0" />
+        </div>
+
+        {/* 3. Compact Hero Billboard */}
+        <div className="w-full my-1 p-3.5 rounded-2xl bg-gradient-to-r from-surface-elevated/95 to-slate-900/90 border border-white/10 flex items-center justify-between gap-3 z-10 shadow-lg">
+          <div className="flex-1 text-right">
+            <span className="text-[10px] font-black text-nova-cyan font-mono flex items-center gap-1 mb-0.5">
+              <Zap className="w-3 h-3" />
+              <span>استجابة فائقة &lt; 400ms</span>
+            </span>
+            <h2 className="text-sm font-black text-white line-clamp-1">
+              {heroTitle}
+            </h2>
+            <p className="text-[10px] text-slate-300 line-clamp-1 mt-0.5">
+              {heroSub}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('live')}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-nova-cyan to-blue-600 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-nova-glow shrink-0 active:scale-95 transition-all cursor-pointer"
+          >
+            <Play className="w-3.5 h-3.5 fill-current" />
+            <span>مشاهدة</span>
+          </button>
+        </div>
+
+        {/* 4. Compact 2x2 Portals Grid */}
+        <div className="w-full grid grid-cols-2 gap-2.5 my-2.5 z-10">
+          {/* Live TV */}
+          <div
+            onClick={() => onNavigate('live')}
+            className="relative h-28 bg-gradient-to-br from-[#081a2e] via-[#05111f] to-[#02070e] border border-nova-cyan/40 hover:border-nova-cyan rounded-2xl p-3 flex flex-col justify-between cursor-pointer overflow-hidden shadow-md active:scale-98 transition-all"
+          >
+            <div className="absolute -top-4 -right-4 w-20 h-20 bg-nova-cyan/20 rounded-full blur-xl pointer-events-none" />
+            <div className="flex items-center justify-between z-10">
+              <div className="w-8 h-8 rounded-xl bg-nova-cyan/20 border border-nova-cyan/40 flex items-center justify-center text-nova-cyan">
+                <Tv className="w-4 h-4" />
+              </div>
+              <span className="text-[9px] font-black text-nova-cyan bg-nova-cyan/15 px-2 py-0.5 rounded-full font-mono">
+                8,450+
+              </span>
+            </div>
+            <div className="z-10">
+              <h3 className="text-xs font-black text-white">القنوات المباشرة</h3>
+              <p className="text-[9px] text-slate-400 font-mono">Live Streams 4K</p>
+            </div>
+          </div>
+
+          {/* Movies */}
+          <div
+            onClick={() => onNavigate('vod')}
+            className="relative h-28 bg-gradient-to-br from-[#201132] via-[#140a20] to-[#0a0510] border border-nova-purple/40 hover:border-nova-purple rounded-2xl p-3 flex flex-col justify-between cursor-pointer overflow-hidden shadow-md active:scale-98 transition-all"
+          >
+            <div className="absolute -top-4 -right-4 w-20 h-20 bg-nova-purple/20 rounded-full blur-xl pointer-events-none" />
+            <div className="flex items-center justify-between z-10">
+              <div className="w-8 h-8 rounded-xl bg-nova-purple/20 border border-nova-purple/40 flex items-center justify-center text-nova-purple">
+                <Film className="w-4 h-4" />
+              </div>
+              <span className="text-[9px] font-black text-nova-purple bg-nova-purple/15 px-2 py-0.5 rounded-full font-mono">
+                19,200+
+              </span>
+            </div>
+            <div className="z-10">
+              <h3 className="text-xs font-black text-white">مكتبة الأفلام</h3>
+              <p className="text-[9px] text-slate-400 font-mono">Cinema VOD</p>
+            </div>
+          </div>
+
+          {/* Series */}
+          <div
+            onClick={() => onNavigate('series')}
+            className="relative h-28 bg-gradient-to-br from-[#0c231a] via-[#071711] to-[#040c09] border border-nova-emerald/40 hover:border-nova-emerald rounded-2xl p-3 flex flex-col justify-between cursor-pointer overflow-hidden shadow-md active:scale-98 transition-all"
+          >
+            <div className="absolute -top-4 -right-4 w-20 h-20 bg-nova-emerald/20 rounded-full blur-xl pointer-events-none" />
+            <div className="flex items-center justify-between z-10">
+              <div className="w-8 h-8 rounded-xl bg-nova-emerald/20 border border-nova-emerald/40 flex items-center justify-center text-nova-emerald">
+                <Clapperboard className="w-4 h-4" />
+              </div>
+              <span className="text-[9px] font-black text-nova-emerald bg-nova-emerald/15 px-2 py-0.5 rounded-full font-mono">
+                4,350+
+              </span>
+            </div>
+            <div className="z-10">
+              <h3 className="text-xs font-black text-white">المسلسلات</h3>
+              <p className="text-[9px] text-slate-400 font-mono">Full Seasons</p>
+            </div>
+          </div>
+
+          {/* Favorites */}
+          <div
+            onClick={() => onNavigate('favorites')}
+            className="relative h-28 bg-gradient-to-br from-[#2a1d0a] via-[#1a1205] to-[#0d0902] border border-nova-gold/40 hover:border-nova-gold rounded-2xl p-3 flex flex-col justify-between cursor-pointer overflow-hidden shadow-md active:scale-98 transition-all"
+          >
+            <div className="absolute -top-4 -right-4 w-20 h-20 bg-nova-gold/20 rounded-full blur-xl pointer-events-none" />
+            <div className="flex items-center justify-between z-10">
+              <div className="w-8 h-8 rounded-xl bg-nova-gold/20 border border-nova-gold/40 flex items-center justify-center text-nova-gold">
+                <Star className="w-4 h-4" />
+              </div>
+              <span className="text-[9px] font-black text-nova-gold bg-nova-gold/15 px-2 py-0.5 rounded-full font-mono">
+                {favsCount > 0 ? `${favsCount}` : '0'}
+              </span>
+            </div>
+            <div className="z-10">
+              <h3 className="text-xs font-black text-white">المفضلة</h3>
+              <p className="text-[9px] text-slate-400 font-mono">Saved Items</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 5. Mobile Status Footer */}
+        <div className="w-full pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400 font-mono z-10">
+          <span className="text-emerald-400 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>{account.serverName || 'look.5g.in'}</span>
+          </span>
+          <span className="text-slate-300 font-bold">{currentTime}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 📺 1920x1080 SMART TV DASHBOARD (Samsung Tizen / LG webOS / Android TV)
   return (
     <div className="relative w-full h-full flex flex-row bg-oled bg-radial-vignette overflow-hidden select-none font-sans text-white">
       

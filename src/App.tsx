@@ -18,8 +18,7 @@ import { SettingsModal } from './components/settings/SettingsModal';
 import { ExitConfirmModal, ExitModalMode } from './components/common/ExitConfirmModal';
 import { AdminPortalScreen } from './components/admin/AdminPortalScreen';
 import { MobileBottomNav } from './components/navigation/MobileBottomNav';
-import { Smartphone, Monitor, X } from 'lucide-react';
-
+import { isMobileDevice } from './utils/device';
 import { webOSAdapter } from './utils/webos.adapter';
 
 export const App: React.FC = () => {
@@ -43,45 +42,19 @@ export const App: React.FC = () => {
   const [colorSequence, setColorSequence] = useState<number[]>([]);
   const [lastRemoteKey, setLastRemoteKey] = useState<number | null>(null);
 
-  // Mobile Simulator on PC mode
-  const [isMobileSim, setIsMobileSim] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('nova_mobile_sim') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const [hideSimButton, setHideSimButton] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('nova_hide_sim_btn') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const isSmartTv = typeof window !== 'undefined' && Boolean((window as any).tizen || (window as any).webapis);
-
-  const toggleMobileSim = () => {
-    setIsMobileSim(prev => {
-      const next = !prev;
-      try {
-        localStorage.setItem('nova_mobile_sim', String(next));
-      } catch {}
-      return next;
-    });
-  };
-
-  const dismissSimButton = () => {
-    setHideSimButton(true);
-    try {
-      localStorage.setItem('nova_hide_sim_btn', 'true');
-    } catch {}
-  };
+  // Automatic Device Detection (Mobile/Tablet vs Smart TV)
+  const [isMobile, setIsMobile] = useState<boolean>(isMobileDevice);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-device', isMobileSim ? 'mobile' : 'tv');
-  }, [isMobileSim]);
+    const handleDeviceMode = () => {
+      const mob = isMobileDevice();
+      setIsMobile(mob);
+      document.documentElement.setAttribute('data-device', mob ? 'mobile' : 'tv');
+    };
+    handleDeviceMode();
+    window.addEventListener('resize', handleDeviceMode);
+    return () => window.removeEventListener('resize', handleDeviceMode);
+  }, []);
 
   // Hash listener for direct URL navigation (e.g. http://localhost:5173/#admin)
   useEffect(() => {
@@ -396,18 +369,16 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className={`w-full h-full min-h-screen ${isMobileSim ? 'bg-[#030712] flex flex-col items-center justify-center p-4' : ''}`}>
-      <main className={`relative overflow-hidden bg-oled select-none transition-all duration-300 ${
-        isMobileSim
-          ? 'w-[390px] h-[844px] max-h-[94vh] rounded-[48px] border-[10px] border-slate-800 shadow-[0_0_60px_rgba(0,242,254,0.35)] flex flex-col'
-          : 'w-screen h-screen'
-      }`}>
+    <div className="w-full h-full min-h-screen bg-oled overflow-hidden">
+      <main className="relative w-full h-full min-h-screen overflow-hidden bg-oled select-none">
       
-      {/* VIRTUAL REMOTE SIMULATOR FOR PC & BROWSER PREVIEW */}
-      <RemoteSimulator 
-        onKeyPress={handleRemoteSimulatorKey} 
-        currentScreen={currentScreen} 
-      />
+      {/* VIRTUAL REMOTE SIMULATOR FOR PC DEV PREVIEW ONLY (Never on Mobile or Production) */}
+      {!isMobile && typeof window !== 'undefined' && window.location.port === '5173' && (
+        <RemoteSimulator 
+          onKeyPress={handleRemoteSimulatorKey} 
+          currentScreen={currentScreen} 
+        />
+      )}
 
       {/* REAL-TIME DIAGNOSTICS HUD */}
       <DiagnosticsHud 
@@ -506,44 +477,12 @@ export const App: React.FC = () => {
       )}
 
       {/* MOBILE BOTTOM NAVIGATION BAR (Visible on mobile screens when logged in) */}
-      {account && currentScreen !== 'auth' && currentScreen !== 'vod-player' && (
+      {isMobile && account && currentScreen !== 'auth' && currentScreen !== 'vod-player' && (
         <MobileBottomNav
           currentScreen={currentScreen}
           onNavigate={navigateTo}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
-      )}
-
-      {/* Floating PC Mobile Simulator Toggle Button (Hidden on Smart TVs and when dismissed) */}
-      {!isSmartTv && !hideSimButton && (
-        <div className="fixed top-3 left-3 z-50 flex items-center gap-1.5 backdrop-blur-xl bg-slate-950/70 p-1 rounded-full border border-white/15 shadow-xl">
-          <button
-            type="button"
-            onClick={toggleMobileSim}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-xs font-bold text-cyan-300 active:scale-95 transition-all cursor-pointer"
-            title="التبديل بين شاشة التلفاز ومحاكي الهاتف"
-          >
-            {isMobileSim ? (
-              <>
-                <Monitor className="w-3.5 h-3.5 text-cyan-400" />
-                <span>عرض التلفاز (TV View)</span>
-              </>
-            ) : (
-              <>
-                <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
-                <span>محاكي الموبايل (Phone View)</span>
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={dismissSimButton}
-            className="p-1 rounded-full bg-white/10 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all cursor-pointer"
-            title="إخفاء زر المحاكي نهائياً"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
       )}
 
       </main>

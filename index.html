@@ -4,14 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" id="vp" />
     <script>
-      // Smart TV (Tizen/webOS/LG) → force 1920x1080 TV viewport
+      // Smart TV (Tizen/webOS/LG/Android TV) → force 1920x1080 TV viewport
       // Mobile / Browser / Android → use responsive device viewport
       (function(){
         var ua = navigator.userAgent;
-        var isTV = /Tizen|SmartTV|SMART-TV|webOS|NetCast|BRAVIA|Viera|HbbTV/i.test(ua);
+        var isTV = /Tizen|SmartTV|SMART-TV|webOS|NetCast|BRAVIA|Viera|HbbTV|Android TV|GoogleTV|LargeScreen|AFTB|AFTM|AFTT/i.test(ua);
         var vp = document.getElementById('vp');
         if (isTV && vp) {
           vp.content = 'width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+        } else if (vp) {
+          vp.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
         }
         document.documentElement.setAttribute('data-device', isTV ? 'tv' : 'mobile');
       })();
