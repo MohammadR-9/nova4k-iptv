@@ -8,6 +8,7 @@ import { ActivationService } from '../../services/activation.service';
 import { XtreamService } from '../../services/xtream.service';
 import { UserAccount } from '../../types/iptv.types';
 import { SERVER_CONFIG } from '../../config/server.config';
+import { UrlHistoryService, SavedServer } from '../../services/urlHistory.service';
 
 interface MobileLoginProps {
   onLoginSuccess: (account: UserAccount) => void;
@@ -25,7 +26,11 @@ export const MobileLogin: React.FC<MobileLoginProps> = ({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [serverUrl, setServerUrl] = useState('');
+  const [urlHistory, setUrlHistory] = useState<SavedServer[]>(() => UrlHistoryService.getHistory());
+  const [serverUrl, setServerUrl] = useState<string>(() => {
+    const hist = UrlHistoryService.getHistory();
+    return hist[0]?.url || SERVER_CONFIG.getMasterDns();
+  });
   const [showAdvancedServer, setShowAdvancedServer] = useState(false);
   
   const [isLoading, setIsLoading] = useState(false);
@@ -62,6 +67,10 @@ export const MobileLogin: React.FC<MobileLoginProps> = ({
 
     try {
       const targetServer = serverUrl.trim() || undefined;
+      if (targetServer) {
+        UrlHistoryService.saveUrl(targetServer);
+        setUrlHistory(UrlHistoryService.getHistory());
+      }
       const account = await ActivationService.activateByCode(code.trim(), targetServer);
       onLoginSuccess(account);
     } catch (err: any) {
@@ -81,6 +90,10 @@ export const MobileLogin: React.FC<MobileLoginProps> = ({
 
     try {
       const targetServer = serverUrl.trim() || undefined;
+      if (targetServer) {
+        UrlHistoryService.saveUrl(targetServer);
+        setUrlHistory(UrlHistoryService.getHistory());
+      }
       const account = await ActivationService.activateByCredentials(
         username.trim(), 
         password.trim(), 
@@ -285,6 +298,9 @@ export const MobileLogin: React.FC<MobileLoginProps> = ({
                 </button>
                 {showAdvancedServer && (
                   <div className="mt-2 p-2.5 bg-white/5 rounded-xl border border-white/10">
+                    <label className="block text-[10px] text-slate-300 font-bold mb-1 text-right">
+                      رابط خادم IPTV المخصص:
+                    </label>
                     <input
                       type="url"
                       value={serverUrl}
@@ -292,6 +308,32 @@ export const MobileLogin: React.FC<MobileLoginProps> = ({
                       placeholder="http://example.com:8080"
                       className="w-full h-10 bg-black/40 border border-white/10 rounded-lg px-3 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400"
                     />
+
+                    {/* Saved Server URLs Pills */}
+                    <div className="mt-2 pt-2 border-t border-white/5">
+                      <span className="text-[10px] text-slate-400 font-bold block mb-1 text-right">
+                        سجل السيرفرات السابقة المحفوظة:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 justify-end">
+                        {urlHistory.map((srv) => (
+                          <button
+                            key={srv.url}
+                            type="button"
+                            onClick={() => {
+                              setServerUrl(srv.url);
+                              UrlHistoryService.saveUrl(srv.url);
+                            }}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-mono border transition-all ${
+                              serverUrl.trim().toLowerCase() === srv.url.toLowerCase()
+                                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
+                                : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            {srv.name || srv.url.replace(/^https?:\/\//, '')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -387,6 +429,9 @@ export const MobileLogin: React.FC<MobileLoginProps> = ({
                 </button>
                 {showAdvancedServer && (
                   <div className="mt-2 p-2.5 bg-white/5 rounded-xl border border-white/10">
+                    <label className="block text-[10px] text-slate-300 font-bold mb-1 text-right">
+                      رابط خادم Xtream (Portal URL):
+                    </label>
                     <input
                       type="url"
                       value={serverUrl}
@@ -394,6 +439,32 @@ export const MobileLogin: React.FC<MobileLoginProps> = ({
                       placeholder="http://example.com:8080"
                       className="w-full h-10 bg-black/40 border border-white/10 rounded-lg px-3 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 text-left"
                     />
+
+                    {/* Saved Server URLs Pills */}
+                    <div className="mt-2 pt-2 border-t border-white/5">
+                      <span className="text-[10px] text-slate-400 font-bold block mb-1 text-right">
+                        سجل السيرفرات السابقة المحفوظة:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 justify-end">
+                        {urlHistory.map((srv) => (
+                          <button
+                            key={srv.url}
+                            type="button"
+                            onClick={() => {
+                              setServerUrl(srv.url);
+                              UrlHistoryService.saveUrl(srv.url);
+                            }}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-mono border transition-all ${
+                              serverUrl.trim().toLowerCase() === srv.url.toLowerCase()
+                                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
+                                : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            {srv.name || srv.url.replace(/^https?:\/\//, '')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

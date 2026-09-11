@@ -8,6 +8,7 @@ import { XtreamService } from '../../services/xtream.service';
 import { UserAccount } from '../../types/iptv.types';
 import { SERVER_CONFIG } from '../../config/server.config';
 import { spatialNav } from '../../navigation/spatialNav';
+import { UrlHistoryService, SavedServer } from '../../services/urlHistory.service';
 
 interface ActivationLoginProps {
   onLoginSuccess: (account: UserAccount) => void;
@@ -24,7 +25,11 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
   const [code, setCode] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [serverUrl, setServerUrl] = useState('');
+  const [urlHistory, setUrlHistory] = useState<SavedServer[]>(() => UrlHistoryService.getHistory());
+  const [serverUrl, setServerUrl] = useState<string>(() => {
+    const hist = UrlHistoryService.getHistory();
+    return hist[0]?.url || SERVER_CONFIG.getMasterDns();
+  });
   
   const [showAdvancedServer, setShowAdvancedServer] = useState(false);
   const [showDemoCodesHelp, setShowDemoCodesHelp] = useState(false);
@@ -74,7 +79,12 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const account = await ActivationService.activateByCode(code, serverUrl.trim() || undefined);
+      const targetServer = serverUrl.trim() || undefined;
+      if (targetServer) {
+        UrlHistoryService.saveUrl(targetServer);
+        setUrlHistory(UrlHistoryService.getHistory());
+      }
+      const account = await ActivationService.activateByCode(code, targetServer);
       onLoginSuccess(account);
     } catch (err: any) {
       setErrorMsg(err?.message || 'كود التفعيل غير مسجل أو منتهي الصلاحية');
@@ -87,7 +97,12 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const account = await ActivationService.activateByCredentials(username, password, serverUrl.trim() || undefined);
+      const targetServer = serverUrl.trim() || undefined;
+      if (targetServer) {
+        UrlHistoryService.saveUrl(targetServer);
+        setUrlHistory(UrlHistoryService.getHistory());
+      }
+      const account = await ActivationService.activateByCredentials(username, password, targetServer);
       onLoginSuccess(account);
     } catch (err: any) {
       setErrorMsg(err?.message || 'اسم المستخدم أو كلمة المرور غير صحيحة');
@@ -361,6 +376,32 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
                       placeholder="http://my-iptv-server.com:8080"
                       className="tv-focusable w-full h-11 bg-black/50 border border-white/10 rounded-xl px-4 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:border-accent-cyan"
                     />
+
+                    {/* Saved Servers Pills */}
+                    <div className="mt-2.5 pt-2 border-t border-white/5">
+                      <span className="text-[10px] text-slate-400 font-bold block mb-1 text-right">
+                        سجل السيرفرات السابقة المحفوظة:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 justify-end">
+                        {urlHistory.map((srv) => (
+                          <button
+                            key={srv.url}
+                            type="button"
+                            onClick={() => {
+                              setServerUrl(srv.url);
+                              UrlHistoryService.saveUrl(srv.url);
+                            }}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-mono border transition-all ${
+                              serverUrl.trim().toLowerCase() === srv.url.toLowerCase()
+                                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
+                                : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            {srv.name || srv.url.replace(/^https?:\/\//, '')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -455,6 +496,32 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
                       placeholder="http://my-iptv-server.com:8080"
                       className="tv-focusable w-full h-11 bg-black/50 border border-white/10 rounded-xl px-4 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:border-accent-cyan text-left"
                     />
+
+                    {/* Saved Servers Pills */}
+                    <div className="mt-2.5 pt-2 border-t border-white/5">
+                      <span className="text-[10px] text-slate-400 font-bold block mb-1 text-right">
+                        سجل السيرفرات السابقة المحفوظة:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 justify-end">
+                        {urlHistory.map((srv) => (
+                          <button
+                            key={srv.url}
+                            type="button"
+                            onClick={() => {
+                              setServerUrl(srv.url);
+                              UrlHistoryService.saveUrl(srv.url);
+                            }}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-mono border transition-all ${
+                              serverUrl.trim().toLowerCase() === srv.url.toLowerCase()
+                                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
+                                : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            {srv.name || srv.url.replace(/^https?:\/\//, '')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
