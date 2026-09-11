@@ -105,7 +105,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       {/* =========================================================================
           1. LUXURY SIDE NAVIGATION DOCK (Quick Dock - Look4k V2 Signature)
          ========================================================================= */}
-      <aside className="relative z-20 w-20 md:w-24 h-full bg-slate-950/80 backdrop-blur-2xl border-l border-white/10 flex flex-col items-center justify-between py-6 shrink-0 shadow-2xl">
+      <aside className="hidden md:flex relative z-20 w-20 md:w-24 h-full bg-slate-950/80 backdrop-blur-2xl border-l border-white/10 flex-col items-center justify-between py-6 shrink-0 shadow-2xl">
         
         {/* Top Logo Icon */}
         <div 
@@ -205,56 +205,56 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       {/* =========================================================================
           2. MAIN SCROLLABLE DASHBOARD CANVAS
          ========================================================================= */}
-      <div className="relative z-10 flex-1 h-full flex flex-col justify-between p-4 md:p-8 lg:p-9 overflow-y-auto overflow-x-hidden">
+      <div className="relative z-10 flex-1 h-full flex flex-col justify-start md:justify-between p-3.5 sm:p-5 md:p-8 lg:p-9 overflow-y-auto overflow-x-hidden pb-24 md:pb-8">
         
         {/* TOP STATUS & BRANDING HEADER */}
-        <header className="w-full flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/10 shrink-0">
+        <header className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 md:pb-4 border-b border-white/10 shrink-0">
           {/* Brand Titles */}
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-2.5 sm:gap-3.5">
             <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl md:text-3xl font-black tracking-wider text-white">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-wider text-white">
                   NOVA <span className="text-nova-cyan">4K</span>
                 </h1>
-                <span className="text-[11px] md:text-xs font-black px-3 py-0.5 rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 text-white font-mono tracking-wider shadow-sm">
+                <span className="text-[10px] md:text-xs font-black px-2.5 py-0.5 rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 text-white font-mono tracking-wider shadow-sm">
                   ULTRA V2
                 </span>
                 <span className="hidden sm:inline-block px-2.5 py-0.5 text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-full font-mono">
                   LOOK4K ENGINE 3.0
                 </span>
               </div>
-              <p className="text-[10px] md:text-xs font-bold text-nova-cyan tracking-widest font-mono mt-0.5">
+              <p className="text-[9px] md:text-xs font-bold text-nova-cyan tracking-widest font-mono mt-0.5">
                 ROYAL SMART TV & CINEMATIC OTT PANEL
               </p>
             </div>
           </div>
 
           {/* Top Live Metrics */}
-          <div className="flex items-center gap-2.5 md:gap-3 flex-wrap">
+          <div className="flex items-center gap-2 md:gap-3 flex-wrap text-xs">
             {/* Account Badge */}
-            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-surface-elevated/90 border border-white/10 rounded-xl text-xs font-semibold text-slate-200 shadow-sm">
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-elevated/90 border border-white/10 rounded-xl text-xs font-semibold text-slate-200 shadow-sm">
               <User className="w-3.5 h-3.5 text-nova-cyan" />
               <span className="font-mono">{account.username}</span>
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-emerald-400 font-bold hidden sm:inline">Active VIP</span>
+              <span className="text-emerald-400 font-bold text-[10px] sm:text-xs">Active VIP</span>
             </div>
 
             {/* Server Ping */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-elevated/90 border border-white/10 rounded-xl text-xs font-semibold text-emerald-400 font-mono shadow-sm">
-              <Wifi className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1 px-2.5 py-1 bg-white/5 border border-white/10 rounded-xl text-[11px] font-mono font-bold text-emerald-400">
+              <Wifi className="w-3 h-3" />
               <span>18ms</span>
             </div>
 
             {/* Days Remaining (Latin 0-9) */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-elevated/90 border border-white/10 rounded-xl text-xs font-semibold text-slate-200 shadow-sm">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 border border-white/10 rounded-xl text-[11px] font-mono text-slate-200">
               <Calendar className="w-3.5 h-3.5 text-nova-gold" />
               <span className="hidden sm:inline">الصلاحية:</span>
               <span className="text-nova-gold font-bold font-mono">{account.daysRemaining} days</span>
             </div>
 
             {/* System Clock (Strict Latin 0-9) */}
-            <div className="flex items-center gap-2 px-4 py-1.5 bg-white/5 border border-white/10 rounded-xl text-sm md:text-base font-black font-mono text-white tracking-widest">
-              <Clock className="w-4 h-4 text-nova-cyan" />
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-xl text-xs sm:text-sm md:text-base font-black font-mono text-white tracking-widest">
+              <Clock className="w-3.5 h-3.5 text-nova-cyan" />
               <span>{currentTime}</span>
             </div>
           </div>
@@ -297,38 +297,38 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         {/* =========================================================================
             4. CENTER HERO BILLBOARD (Live Cinema Match Preview & Spotlight)
            ========================================================================= */}
-        <div className="w-full my-2 bg-gradient-to-r from-surface-elevated/95 via-surface-elevated/80 to-transparent border border-white/10 rounded-3xl p-5 md:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 shadow-card-elevated backdrop-blur-md shrink-0">
-          <div className="max-w-2xl text-right">
-            <div className="flex items-center gap-2 mb-2.5">
-              <span className="px-2.5 py-0.5 bg-nova-cyan/20 border border-nova-cyan/40 text-nova-cyan text-xs font-extrabold rounded-lg flex items-center gap-1.5 font-mono">
+        <div className="w-full my-2 bg-gradient-to-r from-surface-elevated/95 via-surface-elevated/80 to-transparent border border-white/10 rounded-3xl p-4 sm:p-6 md:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-5 shadow-card-elevated backdrop-blur-md shrink-0">
+          <div className="max-w-2xl text-right w-full">
+            <div className="flex items-center flex-wrap gap-2 mb-2">
+              <span className="px-2.5 py-0.5 bg-nova-cyan/20 border border-nova-cyan/40 text-nova-cyan text-[11px] font-extrabold rounded-lg flex items-center gap-1.5 font-mono">
                 <span className="w-2 h-2 rounded-full bg-nova-cyan animate-pulse" />
                 NOVA 4K ULTRA
               </span>
-              <span className="text-xs font-bold text-slate-300 font-mono">{account.serverName || 'look.5g.in'}</span>
-              <span className="text-xs font-semibold text-nova-cyan font-mono">• {account.daysRemaining} يوم متبقي</span>
+              <span className="text-[11px] font-bold text-slate-300 font-mono">{account.serverName || 'look.5g.in'}</span>
+              <span className="text-[11px] font-semibold text-nova-cyan font-mono">• {account.daysRemaining} يوم متبقي</span>
             </div>
 
-            <h2 className="text-xl md:text-3xl font-black text-white mb-2 leading-tight">
+            <h2 className="text-lg sm:text-xl md:text-3xl font-black text-white mb-1.5 leading-tight">
               {heroTitle}
             </h2>
-            <p className="text-xs md:text-sm text-slate-300 line-clamp-2 leading-relaxed mb-4">
+            <p className="text-xs md:text-sm text-slate-300 line-clamp-2 leading-relaxed mb-3">
               {heroSub}
             </p>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center flex-wrap gap-2.5">
               <button
                 data-nav-id="btn-resume-live"
                 onClick={() => onNavigate('live')}
-                className="tv-focusable px-8 py-3 bg-gradient-to-r from-nova-cyan via-cyan-400 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-black text-sm md:text-base rounded-2xl flex items-center gap-2.5 shadow-nova-glow transition-all cursor-pointer"
+                className="tv-focusable px-5 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-nova-cyan via-cyan-400 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-black text-xs sm:text-sm md:text-base rounded-2xl flex items-center gap-2 shadow-nova-glow transition-all cursor-pointer"
               >
-                <Play className="w-5 h-5 fill-current" />
+                <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                 <span>البث المباشر</span>
               </button>
 
               <button
                 data-nav-id="btn-hero-vod"
                 onClick={() => onNavigate('vod')}
-                className="tv-focusable px-5 py-3 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-sm rounded-2xl flex items-center gap-2 transition-all cursor-pointer"
+                className="tv-focusable px-4 sm:px-5 py-2.5 sm:py-3 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs sm:text-sm rounded-2xl flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 <Film className="w-4 h-4 text-nova-purple" />
                 <span>مكتبة الأفلام</span>
@@ -361,26 +361,26 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             data-nav-id="portal-live"
             data-nav-group="main-portals"
             onClick={() => onNavigate('live')}
-            className="tv-focusable relative h-44 md:h-52 bg-gradient-to-br from-[#081a2e] via-[#05111f] to-[#02070e] border-2 border-nova-cyan/40 hover:border-nova-cyan rounded-3xl p-5 flex flex-col justify-between cursor-pointer overflow-hidden shadow-card-elevated group transition-all"
+            className="tv-focusable relative h-36 sm:h-44 md:h-52 bg-gradient-to-br from-[#081a2e] via-[#05111f] to-[#02070e] border-2 border-nova-cyan/40 hover:border-nova-cyan rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between cursor-pointer overflow-hidden shadow-card-elevated group transition-all"
           >
             <div className="absolute -top-6 -right-6 w-40 h-40 bg-nova-cyan/20 rounded-full blur-2xl group-hover:bg-nova-cyan/35 transition-all" />
             
             <div className="flex items-center justify-between z-10">
-              <div className="w-12 h-12 rounded-2xl bg-nova-cyan/20 border border-nova-cyan/40 flex items-center justify-center text-nova-cyan shadow-sm group-hover:scale-105 transition-transform">
-                <Tv className="w-6 h-6" />
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-nova-cyan/20 border border-nova-cyan/40 flex items-center justify-center text-nova-cyan shadow-sm group-hover:scale-105 transition-transform">
+                <Tv className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="text-[11px] font-black text-nova-cyan bg-nova-cyan/10 px-3 py-0.5 rounded-full border border-nova-cyan/30 font-mono">
+              <span className="text-[9px] sm:text-[11px] font-black text-nova-cyan bg-nova-cyan/10 px-2 sm:px-3 py-0.5 rounded-full border border-nova-cyan/30 font-mono">
                 8,450+ CHANNELS
               </span>
             </div>
 
             <div className="z-10">
-              <h3 className="text-xl md:text-2xl font-black text-white group-hover:text-nova-cyan transition-colors">
+              <h3 className="text-base sm:text-xl md:text-2xl font-black text-white group-hover:text-nova-cyan transition-colors">
                 القنوات المباشرة
               </h3>
-              <p className="text-xs text-slate-300 mt-1 font-sans">باقات الرياضة، الأخبار، والترفيه 4K UHD</p>
-              <div className="flex items-center gap-2 mt-2 text-[10px] text-nova-cyan/90 font-mono">
-                <span>Fast Zapping</span> • <span>EPG Guide</span> • <span>Catchup DVR</span>
+              <p className="text-[10px] sm:text-xs text-slate-300 mt-0.5 sm:mt-1 font-sans line-clamp-1 sm:line-clamp-none">باقات الرياضة والترفيه 4K</p>
+              <div className="hidden sm:flex items-center gap-2 mt-2 text-[10px] text-nova-cyan/90 font-mono">
+                <span>Fast Zapping</span> • <span>EPG Guide</span>
               </div>
             </div>
           </div>
@@ -390,26 +390,26 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             data-nav-id="portal-vod"
             data-nav-group="main-portals"
             onClick={() => onNavigate('vod')}
-            className="tv-focusable relative h-44 md:h-52 bg-gradient-to-br from-[#201132] via-[#140a20] to-[#0a0510] border-2 border-nova-purple/40 hover:border-nova-purple rounded-3xl p-5 flex flex-col justify-between cursor-pointer overflow-hidden shadow-card-elevated group transition-all"
+            className="tv-focusable relative h-36 sm:h-44 md:h-52 bg-gradient-to-br from-[#201132] via-[#140a20] to-[#0a0510] border-2 border-nova-purple/40 hover:border-nova-purple rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between cursor-pointer overflow-hidden shadow-card-elevated group transition-all"
           >
             <div className="absolute -top-6 -right-6 w-40 h-40 bg-nova-purple/20 rounded-full blur-2xl group-hover:bg-nova-purple/35 transition-all" />
             
             <div className="flex items-center justify-between z-10">
-              <div className="w-12 h-12 rounded-2xl bg-nova-purple/20 border border-nova-purple/40 flex items-center justify-center text-nova-purple shadow-sm group-hover:scale-105 transition-transform">
-                <Film className="w-6 h-6" />
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-nova-purple/20 border border-nova-purple/40 flex items-center justify-center text-nova-purple shadow-sm group-hover:scale-105 transition-transform">
+                <Film className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="text-[11px] font-black text-nova-purple bg-nova-purple/10 px-3 py-0.5 rounded-full border border-nova-purple/30 font-mono">
+              <span className="text-[9px] sm:text-[11px] font-black text-nova-purple bg-nova-purple/10 px-2 sm:px-3 py-0.5 rounded-full border border-nova-purple/30 font-mono">
                 19,200+ MOVIES
               </span>
             </div>
 
             <div className="z-10">
-              <h3 className="text-xl md:text-2xl font-black text-white group-hover:text-nova-purple transition-colors">
+              <h3 className="text-base sm:text-xl md:text-2xl font-black text-white group-hover:text-nova-purple transition-colors">
                 مكتبة الأفلام
               </h3>
-              <p className="text-xs text-slate-300 mt-1 font-sans">أحدث أفلام السينما العالمية 2025 مع الترجمة</p>
-              <div className="flex items-center gap-2 mt-2 text-[10px] text-purple-300/90 font-mono">
-                <span>4K HDR</span> • <span>Multi-Audio</span> • <span>IMDB 8.5+</span>
+              <p className="text-[10px] sm:text-xs text-slate-300 mt-0.5 sm:mt-1 font-sans line-clamp-1 sm:line-clamp-none">أحدث أفلام السينما 2025</p>
+              <div className="hidden sm:flex items-center gap-2 mt-2 text-[10px] text-purple-300/90 font-mono">
+                <span>4K HDR</span> • <span>Multi-Audio</span>
               </div>
             </div>
           </div>
@@ -419,26 +419,26 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             data-nav-id="portal-series"
             data-nav-group="main-portals"
             onClick={() => onNavigate('series')}
-            className="tv-focusable relative h-44 md:h-52 bg-gradient-to-br from-[#0c231a] via-[#071711] to-[#040c09] border-2 border-nova-emerald/40 hover:border-nova-emerald rounded-3xl p-5 flex flex-col justify-between cursor-pointer overflow-hidden shadow-card-elevated group transition-all"
+            className="tv-focusable relative h-36 sm:h-44 md:h-52 bg-gradient-to-br from-[#0c231a] via-[#071711] to-[#040c09] border-2 border-nova-emerald/40 hover:border-nova-emerald rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between cursor-pointer overflow-hidden shadow-card-elevated group transition-all"
           >
             <div className="absolute -top-6 -right-6 w-40 h-40 bg-nova-emerald/20 rounded-full blur-2xl group-hover:bg-nova-emerald/35 transition-all" />
             
             <div className="flex items-center justify-between z-10">
-              <div className="w-12 h-12 rounded-2xl bg-nova-emerald/20 border border-nova-emerald/40 flex items-center justify-center text-nova-emerald shadow-sm group-hover:scale-105 transition-transform">
-                <Clapperboard className="w-6 h-6" />
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-nova-emerald/20 border border-nova-emerald/40 flex items-center justify-center text-nova-emerald shadow-sm group-hover:scale-105 transition-transform">
+                <Clapperboard className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="text-[11px] font-black text-nova-emerald bg-nova-emerald/10 px-3 py-0.5 rounded-full border border-nova-emerald/30 font-mono">
+              <span className="text-[9px] sm:text-[11px] font-black text-nova-emerald bg-nova-emerald/10 px-2 sm:px-3 py-0.5 rounded-full border border-nova-emerald/30 font-mono">
                 4,350+ SERIES
               </span>
             </div>
 
             <div className="z-10">
-              <h3 className="text-xl md:text-2xl font-black text-white group-hover:text-nova-emerald transition-colors">
+              <h3 className="text-base sm:text-xl md:text-2xl font-black text-white group-hover:text-nova-emerald transition-colors">
                 المسلسلات
               </h3>
-              <p className="text-xs text-slate-300 mt-1 font-sans">مواسم كاملة مع استئناف المشاهدة التلقائي</p>
-              <div className="flex items-center gap-2 mt-2 text-[10px] text-emerald-300/90 font-mono">
-                <span>Full Seasons</span> • <span>Smart Resume</span> • <span>Autoplay</span>
+              <p className="text-[10px] sm:text-xs text-slate-300 mt-0.5 sm:mt-1 font-sans line-clamp-1 sm:line-clamp-none">مواسم كاملة واستئناف ذكي</p>
+              <div className="hidden sm:flex items-center gap-2 mt-2 text-[10px] text-emerald-300/90 font-mono">
+                <span>Full Seasons</span> • <span>Smart Resume</span>
               </div>
             </div>
           </div>
@@ -448,25 +448,25 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             data-nav-id="portal-favs"
             data-nav-group="main-portals"
             onClick={() => onNavigate('favorites')}
-            className="tv-focusable relative h-44 md:h-52 bg-gradient-to-br from-[#2a1d0a] via-[#1a1205] to-[#0d0902] border-2 border-nova-gold/40 hover:border-nova-gold rounded-3xl p-5 flex flex-col justify-between cursor-pointer overflow-hidden shadow-card-elevated group transition-all"
+            className="tv-focusable relative h-36 sm:h-44 md:h-52 bg-gradient-to-br from-[#2a1d0a] via-[#1a1205] to-[#0d0902] border-2 border-nova-gold/40 hover:border-nova-gold rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between cursor-pointer overflow-hidden shadow-card-elevated group transition-all"
           >
             <div className="absolute -top-6 -right-6 w-40 h-40 bg-nova-gold/20 rounded-full blur-2xl group-hover:bg-nova-gold/35 transition-all" />
             
             <div className="flex items-center justify-between z-10">
-              <div className="w-12 h-12 rounded-2xl bg-nova-gold/20 border border-nova-gold/40 flex items-center justify-center text-nova-gold shadow-sm group-hover:scale-105 transition-transform">
-                <Star className="w-6 h-6" />
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-nova-gold/20 border border-nova-gold/40 flex items-center justify-center text-nova-gold shadow-sm group-hover:scale-105 transition-transform">
+                <Star className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="text-[11px] font-black text-nova-gold bg-nova-gold/10 px-3 py-0.5 rounded-full border border-nova-gold/30 font-mono">
+              <span className="text-[9px] sm:text-[11px] font-black text-nova-gold bg-nova-gold/10 px-2 sm:px-3 py-0.5 rounded-full border border-nova-gold/30 font-mono">
                 {favsCount > 0 ? `${favsCount} محفوظ` : 'MY FAVORITES'}
               </span>
             </div>
 
             <div className="z-10">
-              <h3 className="text-xl md:text-2xl font-black text-white group-hover:text-nova-gold transition-colors">
+              <h3 className="text-base sm:text-xl md:text-2xl font-black text-white group-hover:text-nova-gold transition-colors">
                 المفضلة السريعة
               </h3>
-              <p className="text-xs text-slate-300 mt-1 font-sans">
-                {favsCount > 0 ? `${favsCount} قناة وفيلم ومسلسل محفوظ` : 'اضغط ⭐ لحفظ القنوات والأفلام والمسلسلات'}
+              <p className="text-[10px] sm:text-xs text-slate-300 mt-0.5 sm:mt-1 font-sans line-clamp-1 sm:line-clamp-none">
+                {favsCount > 0 ? `${favsCount} قناة وفيلم ومسلسل` : 'اضغط ⭐ لحفظ المفضلات'}
               </p>
               <div className="flex items-center gap-2 mt-2 text-[10px] text-amber-300/90 font-mono">
                 <span>Quick Access</span> • <span>DVR Records</span> • <span>Custom Order</span>

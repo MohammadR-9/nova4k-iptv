@@ -218,8 +218,11 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
           }
           setIsBuffering(false);
           const vid = player.current.getVideoElement();
-          if (vid && vid.muted && !isMuted) {
+          const isTvEnvironment = typeof window !== 'undefined' && Boolean((window as any).tizen || (window as any).webapis);
+          if (vid && vid.muted && !isMuted && !isTvEnvironment) {
             setShowUnmuteBanner(true);
+          } else {
+            setShowUnmuteBanner(false);
           }
         },
         onBuffering: (buffering) => {
@@ -258,9 +261,23 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
         PlayerManager.cacheStreamInfo(activeChannel.direct_source, streamType);
         player.current.loadStream(activeChannel.direct_source, streamType);
       }
+      // Auto-hide unmute prompt whenever video becomes unmuted
+      const vid = player.current.getVideoElement();
+      const onVolumeChange = () => {
+        if (vid && !vid.muted) {
+          setShowUnmuteBanner(false);
+        }
+      };
+      if (vid) {
+        vid.addEventListener('volumechange', onVolumeChange);
+      }
     }
 
     return () => {
+      const vid = player.current.getVideoElement();
+      if (vid) {
+        vid.removeEventListener('volumechange', () => {});
+      }
       if (bufferingDebounceRef.current) {
         clearTimeout(bufferingDebounceRef.current);
         bufferingDebounceRef.current = null;

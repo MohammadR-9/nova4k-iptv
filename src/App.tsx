@@ -18,7 +18,7 @@ import { SettingsModal } from './components/settings/SettingsModal';
 import { ExitConfirmModal } from './components/common/ExitConfirmModal';
 import { AdminPortalScreen } from './components/admin/AdminPortalScreen';
 import { MobileBottomNav } from './components/navigation/MobileBottomNav';
-import { Smartphone, Monitor } from 'lucide-react';
+import { Smartphone, Monitor, X } from 'lucide-react';
 
 import { webOSAdapter } from './utils/webos.adapter';
 
@@ -51,6 +51,16 @@ export const App: React.FC = () => {
     }
   });
 
+  const [hideSimButton, setHideSimButton] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('nova_hide_sim_btn') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const isSmartTv = typeof window !== 'undefined' && Boolean((window as any).tizen || (window as any).webapis);
+
   const toggleMobileSim = () => {
     setIsMobileSim(prev => {
       const next = !prev;
@@ -59,6 +69,13 @@ export const App: React.FC = () => {
       } catch {}
       return next;
     });
+  };
+
+  const dismissSimButton = () => {
+    setHideSimButton(true);
+    try {
+      localStorage.setItem('nova_hide_sim_btn', 'true');
+    } catch {}
   };
 
   useEffect(() => {
@@ -419,25 +436,37 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Floating PC Mobile Simulator Toggle Button */}
-      <button
-        type="button"
-        onClick={toggleMobileSim}
-        className="fixed top-3 left-3 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-xs font-bold text-cyan-300 backdrop-blur-xl shadow-lg active:scale-95 transition-all cursor-pointer"
-        title="التبديل بين شاشة التلفاز ومحاكي الهاتف"
-      >
-        {isMobileSim ? (
-          <>
-            <Monitor className="w-3.5 h-3.5 text-cyan-400" />
-            <span>عرض التلفاز (TV View)</span>
-          </>
-        ) : (
-          <>
-            <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
-            <span>محاكي الموبايل (Phone View)</span>
-          </>
-        )}
-      </button>
+      {/* Floating PC Mobile Simulator Toggle Button (Hidden on Smart TVs and when dismissed) */}
+      {!isSmartTv && !hideSimButton && (
+        <div className="fixed top-3 left-3 z-50 flex items-center gap-1.5 backdrop-blur-xl bg-slate-950/70 p-1 rounded-full border border-white/15 shadow-xl">
+          <button
+            type="button"
+            onClick={toggleMobileSim}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-xs font-bold text-cyan-300 active:scale-95 transition-all cursor-pointer"
+            title="التبديل بين شاشة التلفاز ومحاكي الهاتف"
+          >
+            {isMobileSim ? (
+              <>
+                <Monitor className="w-3.5 h-3.5 text-cyan-400" />
+                <span>عرض التلفاز (TV View)</span>
+              </>
+            ) : (
+              <>
+                <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+                <span>محاكي الموبايل (Phone View)</span>
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={dismissSimButton}
+            className="p-1 rounded-full bg-white/10 hover:bg-rose-500/30 text-slate-400 hover:text-rose-300 transition-all cursor-pointer"
+            title="إخفاء زر المحاكي نهائياً"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       </main>
     </div>
