@@ -1,0 +1,20 @@
+{
+  "id": "com.nova4k.ultra.iptv",
+  "version": "3.0.0",
+  "vendor": "NOVA 4K ULTRA",
+  "type": "web",
+  "main": "index.html",
+  "title": "NOVA 4K ULTRA",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgImage": "splash.png",
+  "resolution": "1920x1080",
+  "supportMouse": true,
+  "transparent": false,
+  "handlesRelaunch": true,
+  "requiredPermissions": [
+    "media.storage",
+    "audio.output",
+    "system.operation"
+  ]
+}

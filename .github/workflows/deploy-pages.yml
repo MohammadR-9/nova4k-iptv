@@ -1,0 +1,66 @@
+name: 🌐 Deploy to GitHub Pages (PWABuilder)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🏗️ Build for GitHub Pages
+        run: npm run build
+        env:
+          # GitHub Pages serves from subpath by default — using './' base handles it
+          NODE_ENV: production
+
+      - name: 📁 Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: 📤 Upload dist to Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'dist'
+
+      - name: 🚀 Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: 🎯 PWABuilder Link
+        run: |
+          echo "## 🌐 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Live URL:** ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ➡️ Next Step: Build Android APK via PWABuilder" >> $GITHUB_STEP_SUMMARY
+          echo "1. Go to: https://www.pwabuilder.com" >> $GITHUB_STEP_SUMMARY
+          echo "2. Enter URL: \`${{ steps.deployment.outputs.page_url }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Click **Start** → **Android** → **Download Package**" >> $GITHUB_STEP_SUMMARY
