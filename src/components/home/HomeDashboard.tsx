@@ -3,7 +3,7 @@ import {
   Tv, Film, Clapperboard, Star, 
   Settings, Wifi, Clock, Calendar, 
   Play, Sparkles, Shield, User, Crown,
-  Activity, Radio, ChevronLeft, Zap
+  Activity, Radio, ChevronLeft, Zap, Power
 } from 'lucide-react';
 import { UserAccount, ScreenType } from '../../types/iptv.types';
 import { spatialNav } from '../../navigation/spatialNav';
@@ -16,6 +16,7 @@ interface HomeDashboardProps {
   onNavigate: (screen: ScreenType) => void;
   onOpenSettings: () => void;
   onOpenDiagnostics: () => void;
+  onRequestExit?: () => void;
 }
 
 
@@ -23,7 +24,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   account, 
   onNavigate, 
   onOpenSettings,
-  onOpenDiagnostics
+  onOpenDiagnostics,
+  onRequestExit
 }) => {
   const [currentTime, setCurrentTime] = useState('');
   const [activeEventIndex, setActiveEventIndex] = useState(0);
@@ -394,6 +396,19 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           >
             <Settings className="w-5 h-5" />
           </button>
+
+          {/* Exit / Logout Power Button */}
+          {onRequestExit && (
+            <button
+              data-nav-id="dock-exit"
+              data-nav-group="quick-dock"
+              onClick={onRequestExit}
+              className="tv-focusable p-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/30 transition-all cursor-pointer"
+              title="الخروج من الحساب / إغلاق التطبيق"
+            >
+              <Power className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </aside>
 
@@ -452,6 +467,18 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               <Clock className="w-3.5 h-3.5 text-nova-cyan" />
               <span>{currentTime}</span>
             </div>
+
+            {/* Quick Exit / Logout Button */}
+            {onRequestExit && (
+              <button
+                onClick={onRequestExit}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 bg-red-500/10 hover:bg-red-500/25 border border-red-500/30 hover:border-red-500/50 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 transition-all cursor-pointer"
+                title="الخروج / إغلاق التطبيق"
+              >
+                <Power className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">خروج</span>
+              </button>
+            )}
           </div>
         </header>
 

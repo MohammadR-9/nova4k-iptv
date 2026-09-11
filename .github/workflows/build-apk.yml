@@ -214,6 +214,25 @@ jobs:
                       }
                   });
               }
+
+              @PluginMethod
+              public void exitApp(PluginCall call) {
+                  if (getActivity() == null) { call.reject("Activity is null"); return; }
+                  getActivity().runOnUiThread(() -> {
+                      try {
+                          getActivity().finishAffinity();
+                          call.resolve();
+                          System.exit(0);
+                      } catch (Exception ex) {
+                          try {
+                              getActivity().finish();
+                              call.resolve();
+                          } catch (Exception ignored) {
+                              call.reject(ex.getMessage());
+                          }
+                      }
+                  });
+              }
           }
           EOF
 
@@ -312,7 +331,16 @@ jobs:
 
                               @JavascriptInterface
                               public void exitApp() {
-                                  runOnUiThread(() -> finishAffinity());
+                                  runOnUiThread(() -> {
+                                      try {
+                                          finishAffinity();
+                                          System.exit(0);
+                                      } catch (Exception e) {
+                                          try {
+                                              finish();
+                                          } catch (Exception ignored) {}
+                                      }
+                                  });
                               }
                           }, "AndroidNative");
                       }

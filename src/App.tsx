@@ -308,6 +308,37 @@ export const App: React.FC = () => {
     setIsExitModalOpen(false);
     PlayerManager.killActiveStreams();
     if (typeof window !== 'undefined') {
+      // 1. Android Native via JavascriptInterface (Direct WebView Bridge)
+      if ((window as any).AndroidNative && typeof (window as any).AndroidNative.exitApp === 'function') {
+        try {
+          (window as any).AndroidNative.exitApp();
+          return;
+        } catch (e) {
+          console.warn('[AndroidNative] exitApp failed:', e);
+        }
+      }
+
+      // 2. Android Native via Capacitor Plugin
+      const cap = (window as any).Capacitor;
+      if (cap?.Plugins?.AndroidNative && typeof cap.Plugins.AndroidNative.exitApp === 'function') {
+        try {
+          cap.Plugins.AndroidNative.exitApp();
+          return;
+        } catch (e) {
+          console.warn('[Capacitor] AndroidNative.exitApp failed:', e);
+        }
+      }
+
+      if (cap?.Plugins?.App && typeof cap.Plugins.App.exitApp === 'function') {
+        try {
+          cap.Plugins.App.exitApp();
+          return;
+        } catch (e) {
+          console.warn('[Capacitor] App.exitApp failed:', e);
+        }
+      }
+
+      // 3. Samsung Tizen Smart TV
       if ((window as any).tizen) {
         try {
           (window as any).tizen.application.getCurrentApplication().exit();
@@ -316,18 +347,24 @@ export const App: React.FC = () => {
           console.log('[Tizen] Application exit error:', e);
         }
       }
+
+      // 4. LG webOS Smart TV
       if ((window as any).webOS && typeof (window as any).webOS.platformBack === 'function') {
         try {
           (window as any).webOS.platformBack();
           return;
         } catch {}
       }
+
+      // 5. Cordova legacy
       if ((window as any).navigator?.app?.exitApp) {
         try {
           (window as any).navigator.app.exitApp();
           return;
         } catch {}
       }
+
+      // 6. Browser / Electron fallback
       try {
         window.close();
       } catch {}
@@ -467,6 +504,10 @@ export const App: React.FC = () => {
           onNavigate={navigateTo}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenDiagnostics={() => setIsDiagnosticsOpen(true)}
+          onRequestExit={() => {
+            setExitModalMode('account-logout');
+            setIsExitModalOpen(true);
+          }}
         />
       )}
 

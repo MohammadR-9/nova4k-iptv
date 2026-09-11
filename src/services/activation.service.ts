@@ -233,15 +233,45 @@ export class ActivationService {
 
   public static saveAccount(account: UserAccount): void {
     try {
+      const prevRaw = localStorage.getItem(this.STORAGE_KEY);
+      if (prevRaw) {
+        try {
+          const prev = JSON.parse(prevRaw);
+          if (prev.username !== account.username || prev.isLiveServer !== account.isLiveServer) {
+            this.clearContentCache();
+          }
+        } catch {}
+      }
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(account));
     } catch (e) {
       console.error('[ActivationService] Failed to save account to localStorage:', e);
     }
   }
 
+  public static clearContentCache(): void {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (
+          key.startsWith('tizen_live_chs_') ||
+          key.startsWith('tizen_vod_movies_') ||
+          key.startsWith('tizen_series_') ||
+          key.startsWith('tizen_vod_details_') ||
+          key.startsWith('tizen_series_info_')
+        )) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      XtreamService.clearCache();
+    } catch {}
+  }
+
   public static logout(): void {
     try {
       localStorage.removeItem(this.STORAGE_KEY);
+      this.clearContentCache();
     } catch {}
   }
 }

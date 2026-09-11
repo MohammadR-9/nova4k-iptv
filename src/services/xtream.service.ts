@@ -180,6 +180,10 @@ export class XtreamService {
     * Instant in-memory and persistent caching to eliminate browser/TV freezes completely.
    */
   public static getCachedLiveChannels(categoryId: string = 'all'): LiveChannel[] | null {
+    const account = ActivationService.getSavedAccount();
+    if (!account?.isLiveServer) {
+      return null;
+    }
     if (this.liveChannelsCache.has(categoryId)) {
       return this.liveChannelsCache.get(categoryId)!;
     }
@@ -983,6 +987,10 @@ export class XtreamService {
    * Prevents 15 MB / 20,000 movies downloading freeze by querying by category!
    */
   public static getCachedVodMovies(categoryId: string = 'all'): VodItem[] | null {
+    const account = ActivationService.getSavedAccount();
+    if (!account?.isLiveServer) {
+      return null;
+    }
     if (this.vodMoviesCache.has(categoryId)) {
       return this.vodMoviesCache.get(categoryId)!;
     }
@@ -1372,6 +1380,10 @@ export class XtreamService {
    * Prevents large JSON download freezes by querying by category!
    */
   public static getCachedSeriesList(categoryId: string = 'all'): SeriesItem[] | null {
+    const account = ActivationService.getSavedAccount();
+    if (!account?.isLiveServer) {
+      return null;
+    }
     if (this.seriesListCache.has(categoryId)) {
       return this.seriesListCache.get(categoryId)!;
     }
