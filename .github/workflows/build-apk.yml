@@ -62,7 +62,7 @@ jobs:
       - name: 📱 Accept SDK licenses & install components
         run: |
           yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          sdkmanager "platform-tools" "build-tools;35.0.0" "platforms;android-35"
 
       # ─── 6. Capacitor ────────────────────────────────────────────
       - name: 🔌 Install Capacitor packages
