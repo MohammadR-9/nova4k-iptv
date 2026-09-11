@@ -190,12 +190,31 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
   // 3. Search & Filter Multi-Attributes (uses master global search across all 10,008 series when searching)
   const filteredSeries = useMemo(() => {
     const isSearching = !!searchQuery.trim();
-    const sourcePool = (isSearching && masterSearchResults !== null) ? masterSearchResults : allSeries;
+    const q = searchQuery.toLowerCase().trim();
+
+    // Pool of series to search/filter from
+    let sourcePool = allSeries;
+    if (isSearching) {
+      if (masterSearchResults !== null && masterSearchResults.length > 0) {
+        const map = new Map<number, SeriesItem>();
+        masterSearchResults.forEach(s => map.set(s.series_id, s));
+        allSeries.forEach(s => {
+          if (!map.has(s.series_id)) {
+            const matchName = s.name?.toLowerCase().includes(q) || false;
+            const matchCast = s.cast?.toLowerCase().includes(q) || false;
+            const matchGenre = s.genre?.toLowerCase().includes(q) || false;
+            if (matchName || matchCast || matchGenre) {
+              map.set(s.series_id, s);
+            }
+          }
+        });
+        sourcePool = Array.from(map.values());
+      }
+    }
 
     let result = sourcePool.filter(s => {
-      // Text Search (if master search results are still resolving, filter active pool as quick fallback)
-      if (isSearching && masterSearchResults === null) {
-        const q = searchQuery.toLowerCase().trim();
+      // Text Search (always filter against query string)
+      if (isSearching) {
         const matchName = s.name?.toLowerCase().includes(q) || false;
         const matchCast = s.cast?.toLowerCase().includes(q) || false;
         const matchGenre = s.genre?.toLowerCase().includes(q) || false;
@@ -314,92 +333,185 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
       {/* =========================================================================
           1. TOP NAVIGATION & SEARCH BAR (Look4k V2 Series Header)
          ========================================================================= */}
-      <header className="h-16 px-6 border-b border-white/10 bg-slate-950/85 backdrop-blur-2xl flex items-center justify-between shrink-0 z-30">
-        <div className="flex items-center gap-3">
-          <button 
-            data-nav-id="btn-series-back"
-            onClick={onBackToHome}
-            className="tv-focusable p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
-            title="العودة للرئيسية (Back)"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-600 to-nova-cyan flex items-center justify-center text-slate-950 shadow-lg shadow-emerald-500/25">
-              <Clapperboard className="w-5 h-5" />
+      {/* =========================================================================
+          1. TOP NAVIGATION & SEARCH BAR (Responsive Mobile vs Desktop Look4k V2)
+         ========================================================================= */}
+      {isMobile ? (
+        /* --- MOBILE HEADER & SEARCH --- */
+        <>
+          <header className="px-3 py-2 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl flex items-center justify-between shrink-0 z-30">
+            <div className="flex items-center gap-2 min-w-0">
+              <button 
+                data-nav-id="btn-series-back"
+                type="button"
+                onClick={onBackToHome}
+                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors cursor-pointer shrink-0"
+                title="العودة للرئيسية (Back)"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-600 to-nova-cyan flex items-center justify-center text-slate-950 shrink-0 shadow-md shadow-emerald-500/20">
+                  <Clapperboard className="w-4 h-4" />
+                </div>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <h1 className="text-sm font-black text-white whitespace-nowrap">المسلسلات</h1>
+                  <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold whitespace-nowrap">
+                    {searchQuery.trim() ? `${filteredSeries.length} نتيجة` : `${filteredSeries.length}`}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base md:text-lg font-black text-white tracking-wide">مكتبة المسلسلات (NOVA 4K ULTRA)</h1>
-                <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">
-                  {searchQuery.trim() ? `${filteredSeries.length} نتيجة بحث` : `${filteredSeries.length} مسلسل`}
-                </span>
+
+            {/* Mobile Header Action Buttons */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                data-nav-id="btn-series-ai-advisor"
+                type="button"
+                onClick={() => setIsAiAdvisorOpen(true)}
+                className="h-8 px-2.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-500 text-slate-950 font-black text-xs flex items-center gap-1 shadow-md shadow-emerald-600/30 border border-emerald-400/40 cursor-pointer"
+                title="مستشار المسلسلات الذكي (AI)"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span className="text-[11px]">AI</span>
+              </button>
+
+              <button
+                data-nav-id="btn-series-filters-toggle"
+                type="button"
+                onClick={() => setIsFilterBarOpen(prev => !prev)}
+                className={`h-8 px-2.5 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  isFilterBarOpen || hasActiveFilters
+                    ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                    : 'bg-surface-elevated border-white/10 text-slate-300 hover:text-white'
+                }`}
+                title="تصفية متقدمة"
+              >
+                <Filter className="w-3.5 h-3.5" />
+                {hasActiveFilters && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                )}
+              </button>
+            </div>
+          </header>
+
+          {/* Dedicated Full-Width Search Bar for Mobile */}
+          <div className="w-full px-3 py-2 bg-slate-950/70 border-b border-white/10 shrink-0 z-25">
+            <div className="relative w-full">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="ابحث في المسلسلات (اسم المسلسل، الممثل، النوع)..."
+                className="w-full h-10 bg-surface-elevated border border-white/15 rounded-xl pr-9 pl-9 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-400 focus:bg-slate-900 transition-colors"
+              />
+              {isSearchingGlobally ? (
+                <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin absolute right-2.5 top-3" />
+              ) : (
+                <Search className="w-4 h-4 text-emerald-400 absolute right-2.5 top-3 pointer-events-none" />
+              )}
+              {searchQuery && (
+                <button 
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute left-2.5 top-2.5 p-1 text-slate-400 hover:text-white rounded-full bg-white/10"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        /* --- DESKTOP & SMART TV HEADER --- */
+        <header className="h-16 px-6 border-b border-white/10 bg-slate-950/85 backdrop-blur-2xl flex items-center justify-between shrink-0 z-30">
+          <div className="flex items-center gap-3">
+            <button 
+              data-nav-id="btn-series-back"
+              onClick={onBackToHome}
+              className="tv-focusable p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
+              title="العودة للرئيسية (Back)"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-600 to-nova-cyan flex items-center justify-center text-slate-950 shadow-lg shadow-emerald-500/25">
+                <Clapperboard className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base md:text-lg font-black text-white tracking-wide">مكتبة المسلسلات (NOVA 4K ULTRA)</h1>
+                  <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">
+                    {searchQuery.trim() ? `${filteredSeries.length} نتيجة بحث` : `${filteredSeries.length} مسلسل`}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Header Action Tools */}
-        <div className="flex items-center gap-2.5">
-          {/* AI Advisor Button */}
-          <button
-            data-nav-id="btn-series-ai-advisor"
-            onClick={() => setIsAiAdvisorOpen(true)}
-            className="tv-focusable h-9 px-3.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-emerald-600/30 border border-emerald-400/40 cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span className="hidden sm:inline">مستشار المسلسلات (AI)</span>
-          </button>
+          {/* Header Action Tools */}
+          <div className="flex items-center gap-2.5">
+            {/* AI Advisor Button */}
+            <button
+              data-nav-id="btn-series-ai-advisor"
+              onClick={() => setIsAiAdvisorOpen(true)}
+              className="tv-focusable h-9 px-3.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-emerald-600/30 border border-emerald-400/40 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">مستشار المسلسلات (AI)</span>
+            </button>
 
-          {/* Filter Bar Toggle Button */}
-          <button
-            data-nav-id="btn-series-filters-toggle"
-            onClick={() => setIsFilterBarOpen(prev => !prev)}
-            className={`tv-focusable h-9 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              isFilterBarOpen || hasActiveFilters
-                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
-                : 'bg-surface-elevated border-white/10 text-slate-300 hover:text-white'
-            }`}
-          >
-            <Filter className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">تصفية متقدمة</span>
-            {hasActiveFilters && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            )}
-          </button>
+            {/* Filter Bar Toggle Button */}
+            <button
+              data-nav-id="btn-series-filters-toggle"
+              onClick={() => setIsFilterBarOpen(prev => !prev)}
+              className={`tv-focusable h-9 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                isFilterBarOpen || hasActiveFilters
+                  ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                  : 'bg-surface-elevated border-white/10 text-slate-300 hover:text-white'
+              }`}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">تصفية متقدمة</span>
+              {hasActiveFilters && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              )}
+            </button>
 
-          {/* Series Global Search Input */}
-          <div className="relative w-52 md:w-72">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث شامل في كل المسلسلات (10,000)..."
-              className="w-full h-9 bg-surface-elevated border border-white/10 rounded-xl px-8 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-400"
-            />
-            {isSearchingGlobally ? (
-              <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin absolute right-2.5 top-2.5" />
-            ) : (
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
-            )}
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute left-2.5 top-2.5 text-slate-400 hover:text-white"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
+            {/* Series Global Search Input */}
+            <div className="relative w-52 md:w-72">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="بحث شامل في كل المسلسلات (10,000)..."
+                className="w-full h-9 bg-surface-elevated border border-white/10 rounded-xl px-8 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-400"
+              />
+              {isSearchingGlobally ? (
+                <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin absolute right-2.5 top-2.5" />
+              ) : (
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
+              )}
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute left-2.5 top-2.5 text-slate-400 hover:text-white"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* =========================================================================
           2. QUICK TOP FILTER BAR
          ========================================================================= */}
-      <div className="w-full px-6 py-2.5 bg-slate-950/60 border-b border-white/5 backdrop-blur-md flex items-center justify-between gap-3 shrink-0 z-20 overflow-x-auto">
-        <div className="flex items-center gap-2">
+      <div className="w-full px-3 md:px-6 py-2 bg-slate-950/60 border-b border-white/5 backdrop-blur-md flex items-center justify-between gap-2 shrink-0 z-20 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 shrink-0">
           {[
             { id: 'all', label: 'الكل' },
             { id: 'trending', label: 'الأكثر تداولاً 🔥' },
@@ -410,7 +522,7 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
             <button
               key={tab.id}
               onClick={() => setQuickFilter(tab.id as any)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 quickFilter === tab.id
                   ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-black shadow-md shadow-emerald-500/30 border border-emerald-400/40'
                   : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-transparent'
@@ -424,17 +536,18 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
         {hasActiveFilters && (
           <button
             onClick={resetFilters}
-            className="text-xs text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer shrink-0"
+            className="text-xs text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap"
+            title="إعادة ضبط الفلاتر"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>إلغاء الفلاتر</span>
+            <span className="hidden sm:inline">إلغاء الفلاتر</span>
           </button>
         )}
       </div>
 
       {/* Advanced Filter Collapsible Bar */}
       {isFilterBarOpen && (
-        <div className="w-full px-6 py-3 bg-slate-900/95 border-b border-emerald-500/20 flex flex-wrap items-center justify-between gap-4 z-20 backdrop-blur-md">
+        <div className="w-full px-3 md:px-6 py-2.5 bg-slate-900/95 border-b border-emerald-500/20 flex flex-wrap items-center justify-between gap-3 z-20 backdrop-blur-md">
           <div className="flex flex-wrap items-center gap-4 text-xs">
             {/* Year Selector */}
             <div className="flex items-center gap-1.5">
@@ -517,7 +630,7 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
         <div className="w-full px-3 py-2 bg-slate-950/90 border-b border-white/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0 z-10">
           <button
             onClick={() => handleSelectCategory('all')}
-            className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               selectedCatId === 'all'
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-black shadow-md'
                 : 'bg-white/5 border border-white/5 text-slate-300'
@@ -529,7 +642,7 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
             <button
               key={cat.category_id}
               onClick={() => handleSelectCategory(cat.category_id)}
-              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all truncate ${
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-xl text-xs font-bold transition-all truncate ${
                 selectedCatId === cat.category_id
                   ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-black shadow-md'
                   : 'bg-white/5 border border-white/5 text-slate-300'

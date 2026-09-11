@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Universal device detection: Mobile/Tablet vs Smart TV
  */
 export const isMobileDevice = (): boolean => {
@@ -17,10 +17,10 @@ export const isMobileDevice = (): boolean => {
   if (attr === 'mobile') return true;
   if (attr === 'tv') return false;
 
-  // 4. Mobile / Tablet user agents or touch screen with compact viewport
+  // 4. Mobile / Tablet user agents or touch screen or compact screen width (< 768px)
   const isMobileUa = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
   const hasTouch = 'ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
-  const isCompact = (window.innerWidth <= 1024 && window.innerHeight <= 600) || window.innerWidth < 768;
+  const isCompact = window.innerWidth < 768 || (hasTouch && window.innerWidth <= 1024 && window.innerHeight <= 700);
 
-  return Boolean(isMobileUa || (hasTouch && isCompact));
+  return Boolean(isMobileUa || isCompact);
 };

@@ -1142,8 +1142,29 @@ export class XtreamService {
   public static async searchVodGlobally(query: string): Promise<VodItem[]> {
     const q = query.toLowerCase().trim();
     if (!q) return [];
-    const master = await this.getAllVodMaster();
-    return master.filter(m => 
+
+    // 1. Gather all currently cached movies across all loaded categories
+    const pool = new Map<number, VodItem>();
+    this.vodMoviesCache.forEach((movies) => {
+      movies.forEach(m => {
+        if (!pool.has(m.stream_id)) pool.set(m.stream_id, m);
+      });
+    });
+
+    // 2. Fetch or use master catalog if available
+    try {
+      const master = await this.getAllVodMaster();
+      if (Array.isArray(master) && master.length > 0) {
+        master.forEach(m => {
+          if (!pool.has(m.stream_id)) pool.set(m.stream_id, m);
+        });
+      }
+    } catch (e) {
+      console.warn('[XtreamService] searchVodGlobally master error:', e);
+    }
+
+    const allItems = Array.from(pool.values());
+    return allItems.filter(m => 
       (m.name && m.name.toLowerCase().includes(q)) ||
       (m.cast && m.cast.toLowerCase().includes(q)) ||
       (m.director && m.director.toLowerCase().includes(q))
@@ -1501,8 +1522,29 @@ export class XtreamService {
   public static async searchSeriesGlobally(query: string): Promise<SeriesItem[]> {
     const q = query.toLowerCase().trim();
     if (!q) return [];
-    const master = await this.getAllSeriesMaster();
-    return master.filter(s => 
+
+    // 1. Gather all currently cached series across all loaded categories
+    const pool = new Map<number, SeriesItem>();
+    this.seriesListCache.forEach((seriesList) => {
+      seriesList.forEach(s => {
+        if (!pool.has(s.series_id)) pool.set(s.series_id, s);
+      });
+    });
+
+    // 2. Fetch or use master catalog if available
+    try {
+      const master = await this.getAllSeriesMaster();
+      if (Array.isArray(master) && master.length > 0) {
+        master.forEach(s => {
+          if (!pool.has(s.series_id)) pool.set(s.series_id, s);
+        });
+      }
+    } catch (e) {
+      console.warn('[XtreamService] searchSeriesGlobally master error:', e);
+    }
+
+    const allItems = Array.from(pool.values());
+    return allItems.filter(s => 
       (s.name && s.name.toLowerCase().includes(q)) ||
       (s.cast && s.cast.toLowerCase().includes(q)) ||
       (s.genre && s.genre.toLowerCase().includes(q))
