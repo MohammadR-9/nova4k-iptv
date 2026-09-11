@@ -1,20 +1,26 @@
-name: 🌐 Build for PWABuilder (No Pages Deploy)
-
-# NOTE: GitHub Pages requires the repo to be Public OR GitHub Pro plan.
-# This workflow only BUILDS the dist/ and uploads it as artifact.
-# To get a live HTTPS URL for PWABuilder, either:
-#   1. Make repo Public: Settings → Danger Zone → Change visibility → Public
-#   2. OR use Cloudflare Pages / Netlify (free, supports private repos)
+name: 🌐 Deploy to GitHub Pages (PWABuilder)
 
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
-  build-web:
-    name: Build Web App (dist artifact)
+  deploy:
+    name: Build & Deploy to GitHub Pages
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: 📥 Checkout
@@ -36,19 +42,25 @@ jobs:
           echo "✅ Build complete — $(du -sh dist | cut -f1)"
           ls dist/
 
-      - name: 📤 Upload dist as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: NOVA-4K-web-dist
-          path: dist/
-          retention-days: 14
+      - name: 📁 Setup GitHub Pages
+        uses: actions/configure-pages@v5
 
-      - name: 📊 Summary
+      - name: 📤 Upload dist to Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'dist'
+
+      - name: 🚀 Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: 🎯 Summary
         run: |
-          echo "## 🌐 NOVA 4K ULTRA — Web Build" >> $GITHUB_STEP_SUMMARY
+          echo "## 🌐 NOVA 4K ULTRA — Live on GitHub Pages!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ dist/ built and uploaded as artifact." >> $GITHUB_STEP_SUMMARY
+          echo "**🔗 App URL**: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### To get HTTPS URL for PWABuilder:" >> $GITHUB_STEP_SUMMARY
-          echo "**Option A**: Make repo Public → GitHub Pages activates automatically." >> $GITHUB_STEP_SUMMARY
-          echo "**Option B**: Connect this repo to https://pages.cloudflare.com (free, works with private repos)." >> $GITHUB_STEP_SUMMARY
+          echo "### ➡️ Get Android APK via PWABuilder:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Open: https://www.pwabuilder.com" >> $GITHUB_STEP_SUMMARY
+          echo "2. Enter: \`${{ steps.deployment.outputs.page_url }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Click **Start** → **Android** → **Download Package**" >> $GITHUB_STEP_SUMMARY
