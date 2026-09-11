@@ -2,7 +2,20 @@
 <html lang="ar" dir="rtl" class="h-full w-full bg-oled overflow-hidden select-none">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" id="vp" />
+    <script>
+      // Smart TV (Tizen/webOS/LG) → force 1920x1080 TV viewport
+      // Mobile / Browser / Android → use responsive device viewport
+      (function(){
+        var ua = navigator.userAgent;
+        var isTV = /Tizen|SmartTV|SMART-TV|webOS|NetCast|BRAVIA|Viera|HbbTV/i.test(ua);
+        var vp = document.getElementById('vp');
+        if (isTV && vp) {
+          vp.content = 'width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+        }
+        document.documentElement.setAttribute('data-device', isTV ? 'tv' : 'mobile');
+      })();
+    </script>
     <title>NOVA 4K ULTRA - Smart TV & Cinema OTT</title>
 
     <!-- PWA Manifest (required for PWABuilder & Android TWA packaging) -->

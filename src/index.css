@@ -71,3 +71,86 @@
 .animate-live-dot {
   animation: live-pulse 1.8s infinite ease-in-out;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   📱 MOBILE RESPONSIVE OVERRIDES
+   Applied when data-device="mobile" (non-TV devices)
+   TV devices keep the fixed 1920x1080 layout
+   ═══════════════════════════════════════════════════════════ */
+
+/* Mobile: allow scrolling on non-TV */
+[data-device="mobile"] body,
+[data-device="mobile"] #root {
+  overflow: auto !important;
+  height: auto !important;
+  min-height: 100dvh;
+}
+
+/* Mobile login card: full width, centered */
+@media (max-width: 900px) {
+  /* Root fills screen naturally */
+  html[data-device="mobile"] .h-full { height: 100dvh; }
+
+  /* Login card: stack vertically, readable size */
+  html[data-device="mobile"] .login-card,
+  html[data-device="mobile"] [class*="rounded-2xl"][class*="backdrop-blur"] {
+    width: 92vw !important;
+    max-width: 440px !important;
+    margin: auto !important;
+    padding: 1.25rem !important;
+  }
+
+  /* Scale up text for mobile readability */
+  html[data-device="mobile"] .text-xs  { font-size: 0.8rem !important; }
+  html[data-device="mobile"] .text-sm  { font-size: 0.9rem !important; }
+  html[data-device="mobile"] .text-base { font-size: 1rem !important; }
+  html[data-device="mobile"] .text-lg  { font-size: 1.1rem !important; }
+  html[data-device="mobile"] .text-xl  { font-size: 1.2rem !important; }
+  html[data-device="mobile"] .text-2xl { font-size: 1.4rem !important; }
+  html[data-device="mobile"] .text-3xl { font-size: 1.7rem !important; }
+  html[data-device="mobile"] .text-4xl { font-size: 2rem !important; }
+
+  /* Buttons: larger tap targets on mobile */
+  html[data-device="mobile"] button {
+    min-height: 44px;
+    font-size: 0.95rem !important;
+  }
+
+  /* Inputs: readable on mobile */
+  html[data-device="mobile"] input {
+    font-size: 1rem !important;
+    height: 44px !important;
+  }
+
+  /* TV sidebar/grid: become vertical list on mobile */
+  html[data-device="mobile"] .channel-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* TV focused states: disable scale on mobile (no D-pad) */
+  html[data-device="mobile"] .tv-focused {
+    transform: none !important;
+    box-shadow: 0 0 0 2px #00E5FF !important;
+  }
+
+  /* Bottom nav: show on mobile, hide Samsung remote hint */
+  html[data-device="mobile"] .remote-simulator-hint { display: none !important; }
+
+  /* Player: full screen on mobile */
+  html[data-device="mobile"] video {
+    width: 100vw !important;
+    height: 56.25vw !important; /* 16:9 */
+    max-height: 60vh;
+  }
+}
+
+/* Landscape mobile (phones in landscape like MuMuPlayer) */
+@media (max-height: 500px) and (orientation: landscape) {
+  html[data-device="mobile"] .login-card,
+  html[data-device="mobile"] [class*="rounded-2xl"][class*="backdrop-blur"] {
+    width: 60vw !important;
+    max-width: 480px !important;
+    padding: 1rem !important;
+  }
+}
+
