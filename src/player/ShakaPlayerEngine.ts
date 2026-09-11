@@ -143,7 +143,7 @@ export class ShakaPlayerEngine implements ITvPlayerEngine {
     }
   }
 
-  public async loadStream(url: string, streamType: 'HLS' | 'MPEG-TS' | 'MP4' = 'HLS'): Promise<void> {
+  public async loadStream(url: string, streamType: 'HLS' | 'MPEG-TS' | 'MP4' = 'HLS', startPosition?: number): Promise<void> {
     this.currentUrl = url;
     this.diagnostics.protocol = streamType;
 
@@ -153,7 +153,7 @@ export class ShakaPlayerEngine implements ITvPlayerEngine {
 
     try {
       this.events.onBuffering?.(true);
-      await this.shakaPlayer.load(url);
+      await this.shakaPlayer.load(url, startPosition && startPosition > 0 ? startPosition : undefined);
       this.applyAspectRatioTransform();
       this.videoElement.play().catch(() => {});
       this.events.onBuffering?.(false);

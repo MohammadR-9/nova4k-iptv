@@ -89,7 +89,7 @@ export class WebOsMediaEngine implements ITvPlayerEngine {
     console.log('[WebOsMediaEngine] Initialized LG webOS Luna Hardware Media Pipeline');
   }
 
-  public async loadStream(url: string, streamType: 'HLS' | 'MPEG-TS' | 'MP4' = 'HLS'): Promise<void> {
+  public async loadStream(url: string, streamType: 'HLS' | 'MPEG-TS' | 'MP4' = 'HLS', _startPosition?: number): Promise<void> {
     this.currentUrl = url;
     this.diagnostics.protocol = streamType;
 

@@ -85,6 +85,7 @@ jobs:
               <base-config cleartextTrafficPermitted="true">
                   <trust-anchors>
                       <certificates src="system" />
+                      <certificates src="user" />
                   </trust-anchors>
               </base-config>
           </network-security-config>
@@ -246,6 +247,13 @@ jobs:
                           settings.setDatabaseEnabled(true);
                           settings.setAllowFileAccess(true);
                           settings.setAllowContentAccess(true);
+                          settings.setAllowUniversalAccessFromFileURLs(true);
+                          settings.setAllowFileAccessFromFileURLs(true);
+                          settings.setJavaScriptCanOpenWindowsAutomatically(true);
+                          String defaultUa = settings.getUserAgentString();
+                          if (defaultUa != null && !defaultUa.contains("VLC")) {
+                              settings.setUserAgentString(defaultUa + " VLC/3.5.4");
+                          }
 
                           webView.addJavascriptInterface(new Object() {
                               @JavascriptInterface

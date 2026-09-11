@@ -116,7 +116,7 @@ export class WasmMediaEngine implements ITvPlayerEngine {
     }
   }
 
-  public async loadStream(url: string, streamType: 'HLS' | 'MPEG-TS' | 'MP4' = 'HLS'): Promise<void> {
+  public async loadStream(url: string, streamType: 'HLS' | 'MPEG-TS' | 'MP4' = 'HLS', _startPosition?: number): Promise<void> {
     this.currentUrl = url;
     this.diagnostics.protocol = streamType;
 

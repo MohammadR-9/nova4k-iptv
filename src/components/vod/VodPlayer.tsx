@@ -281,27 +281,27 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       if (saved && saved.currentTimeSec > 5) {
         setSavedResume(saved);
         setShowResumePrompt(true);
+        setIsBuffering(false);
         setTimeout(() => {
           spatialNav.setFocus('btn-resume-accept');
         }, 150);
       } else {
+        // Determine stream protocol and start immediately from 0
+        const streamType = item.streamUrl.endsWith('.m3u8') ? 'HLS' : 'MP4';
+        player.current.loadStream(item.streamUrl, streamType, 0).then(() => {
+          if (!isMounted) return;
+          setAudioTracks(player.current.getAudioTracks());
+          setSubtitleTracks(player.current.getSubtitleTracks());
+        }).catch((err) => {
+          if (!isMounted) return;
+          console.error('[VodPlayer] loadStream error:', err);
+          setStreamError('خطأ في تحميل ملف الفيديو');
+          setIsBuffering(false);
+        });
         setTimeout(() => {
           spatialNav.setFocus('btn-play-pause');
         }, 200);
       }
-
-      // Determine stream protocol
-      const streamType = item.streamUrl.endsWith('.m3u8') ? 'HLS' : 'MP4';
-      player.current.loadStream(item.streamUrl, streamType).then(() => {
-        if (!isMounted) return;
-        setAudioTracks(player.current.getAudioTracks());
-        setSubtitleTracks(player.current.getSubtitleTracks());
-      }).catch((err) => {
-        if (!isMounted) return;
-        console.error('[VodPlayer] loadStream error:', err);
-        setStreamError('خطأ في تحميل ملف الفيديو');
-        setIsBuffering(false);
-      });
     }
 
     resetControlsTimer();
@@ -337,9 +337,10 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       pendingResumeRef.current = targetTime;
       setCurrentTime(targetTime);
       currentTimeRef.current = targetTime;
+      setIsBuffering(true);
 
-      // Immediately seek and start playback
-      try {
+      const streamType = item.streamUrl.endsWith('.m3u8') ? 'HLS' : 'MP4';
+      player.current.loadStream(item.streamUrl, streamType, targetTime).then(() => {
         player.current.seek(targetTime);
         const vid = player.current.getVideoElement();
         if (vid) {
@@ -347,9 +348,13 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
         }
         player.current.play();
         setIsPlaying(true);
-      } catch (err) {
-        console.warn('[VodPlayer] Error during resume seek:', err);
-      }
+        setAudioTracks(player.current.getAudioTracks());
+        setSubtitleTracks(player.current.getSubtitleTracks());
+      }).catch((err) => {
+        console.warn('[VodPlayer] Error starting resume stream:', err);
+        setStreamError('خطأ في استئناف ملف الفيديو');
+        setIsBuffering(false);
+      });
 
       setToastMessage(`⏩ استئناف من ${savedResume.formattedTime}`);
       setTimeout(() => setToastMessage(null), 2500);
@@ -363,15 +368,23 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
     // Clear resume point and play from beginning
     VodResumeService.clearResumePoint(item.id);
     pendingResumeRef.current = null;
-    try {
+    setCurrentTime(0);
+    currentTimeRef.current = 0;
+    setIsBuffering(true);
+
+    const streamType = item.streamUrl.endsWith('.m3u8') ? 'HLS' : 'MP4';
+    player.current.loadStream(item.streamUrl, streamType, 0).then(() => {
       player.current.seek(0);
-      setCurrentTime(0);
-      currentTimeRef.current = 0;
       player.current.play();
       setIsPlaying(true);
-    } catch (err) {
-      console.warn('[VodPlayer] Error during restart seek:', err);
-    }
+      setAudioTracks(player.current.getAudioTracks());
+      setSubtitleTracks(player.current.getSubtitleTracks());
+    }).catch((err) => {
+      console.warn('[VodPlayer] Error starting fresh stream:', err);
+      setStreamError('خطأ في تشغيل الفيديو');
+      setIsBuffering(false);
+    });
+
     setShowResumePrompt(false);
     resetControlsTimer();
     setTimeout(() => spatialNav.setFocus('btn-play-pause'), 100);

@@ -113,7 +113,7 @@ export interface PlayerEvents {
 export interface ITvPlayerEngine {
   readonly engineType: PlayerEngineType;
   initialize(containerElement: HTMLElement, events: PlayerEvents): void;
-  loadStream(url: string, streamType?: 'HLS' | 'MPEG-TS' | 'MP4'): Promise<void>;
+  loadStream(url: string, streamType?: 'HLS' | 'MPEG-TS' | 'MP4', startPosition?: number): Promise<void>;
   play(): void;
   pause(): void;
   stop(): void;

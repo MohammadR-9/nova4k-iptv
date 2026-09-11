@@ -23,7 +23,9 @@ const config: CapacitorConfig = {
     initialFocus: true,
   },
   plugins: {
-    // No native plugins needed for IPTV WebView app
+    CapacitorHttp: {
+      enabled: true,
+    },
   }
 };
 

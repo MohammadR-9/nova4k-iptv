@@ -58,7 +58,7 @@ export class TizenAvPlayer implements ITvPlayerEngine {
     console.log('[TizenAvPlayer] Initialized with native Samsung webapis.avplay Hardware DSP');
   }
 
-  public async loadStream(url: string, streamType: 'HLS' | 'MPEG-TS' | 'MP4' = 'HLS'): Promise<void> {
+  public async loadStream(url: string, streamType: 'HLS' | 'MPEG-TS' | 'MP4' = 'HLS', startPosition?: number): Promise<void> {
     this.currentUrl = url;
     this.diagnostics.protocol = streamType;
 
@@ -104,6 +104,9 @@ export class TizenAvPlayer implements ITvPlayerEngine {
         webapis.avplay.prepareAsync(
           () => {
             console.log('[TizenAvPlayer] Stream prepared successfully, starting hardware playback.');
+            if (startPosition && startPosition > 0) {
+              try { webapis.avplay.seekTo(startPosition * 1000); } catch {}
+            }
             webapis.avplay.play();
             this._isPlaying = true;
             this.events.onPlaying?.();

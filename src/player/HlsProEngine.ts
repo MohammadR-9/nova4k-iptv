@@ -157,7 +157,7 @@ export class HlsProEngine implements ITvPlayerEngine {
     this.startDiagnosticsTicker();
   }
 
-  public async loadStream(url: string, streamType: 'HLS' | 'MPEG-TS' | 'MP4' = 'HLS'): Promise<void> {
+  public async loadStream(url: string, streamType: 'HLS' | 'MPEG-TS' | 'MP4' = 'HLS', startPosition: number = 0): Promise<void> {
     if (!this.videoElement) throw new Error('Video element not initialized');
 
     // 1. Immediately isolate audio & stop any previous playback
@@ -172,6 +172,10 @@ export class HlsProEngine implements ITvPlayerEngine {
     this.currentStreamType = streamType;
     this.diagnostics.protocol = streamType;
     this.events.onBuffering?.(true);
+
+    if (startPosition > 0) {
+      this.pendingSeekTime = startPosition;
+    }
 
     if (this.stallDetectorTimer) clearTimeout(this.stallDetectorTimer);
 
@@ -339,6 +343,16 @@ export class HlsProEngine implements ITvPlayerEngine {
         this.videoElement!.src = streamUrl;
         this.videoElement!.load();
 
+        if (startPosition > 0 && this.videoElement) {
+          const seekDirect = () => {
+            if (this.videoElement) {
+              try { this.videoElement.currentTime = startPosition; } catch {}
+            }
+          };
+          this.videoElement.addEventListener('loadedmetadata', seekDirect, { once: true });
+          this.videoElement.addEventListener('canplay', seekDirect, { once: true });
+        }
+
         if (this.gainNode) {
           try { this.gainNode.gain.setValueAtTime(this.volumeLevel, 0); } catch {}
         }
@@ -369,7 +383,7 @@ export class HlsProEngine implements ITvPlayerEngine {
       }
 
       // Configure HLS.js according to selected Engine Profile & Fast-Zapping
-      const hlsConfig = this.buildHlsConfig();
+      const hlsConfig = this.buildHlsConfig(startPosition);
       const hlsInstance = new Hls(hlsConfig);
       this.hls = hlsInstance;
 
@@ -432,29 +446,66 @@ export class HlsProEngine implements ITvPlayerEngine {
         }
       });
 
+      // Direct Native Video Fallback (For Android WebView Stagefright/MediaCodec bypass)
+      const fallbackToNative = () => {
+        if (sessionId !== this.currentLoadSessionId || !this.videoElement) return;
+        console.log('[HlsProEngine] Falling back to native Android/HTML5 player:', streamUrl);
+        try {
+          if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
+          }
+        } catch {}
+        this.videoElement.src = streamUrl;
+        this.videoElement.load();
+        const p = this.videoElement.play();
+        if (p !== undefined) {
+          p.then(() => {
+            if (this.videoElement) this.videoElement.muted = false;
+            this.events.onBuffering?.(false);
+          }).catch(() => {
+            if (this.videoElement) {
+              this.videoElement.muted = true;
+              this.videoElement.play().catch(() => {});
+            }
+            this.events.onBuffering?.(false);
+          });
+        }
+      };
+
       // Anti-Freeze Error Auto-Recovery Loop
       hlsInstance.on(Hls.Events.ERROR, (_event, data) => {
         if (sessionId !== this.currentLoadSessionId) return;
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              console.warn('[HlsProEngine] Network freeze detected. Auto-recovering stream...');
+              console.warn('[HlsProEngine] Network freeze detected. Attempting native fallback if persistent...');
+              if (this.recoveryCount >= 1) {
+                fallbackToNative();
+                return;
+              }
               this.handleStreamFreezeRecovery('انقطاع في الشبكة - تم الاسترداد التلقائي');
               this.hls?.startLoad();
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
               console.warn('[HlsProEngine] Media buffer stall. Recovering media error...');
+              if (this.recoveryCount >= 2) {
+                fallbackToNative();
+                return;
+              }
               this.hls?.recoverMediaError();
               break;
             default:
-              console.warn('[HlsProEngine] Fatal error, checking failover options...');
+              console.warn('[HlsProEngine] Fatal error, attempting native video fallback...');
               if (url.includes('.m3u8') && !this.isRecovering) {
                 const fallbackTs = url.replace(/\.m3u8(\?|$)/, '.ts$1');
                 console.log('[HlsProEngine] Hls.js fatal error, attempting .ts fallback:', fallbackTs);
-                this.loadStream(fallbackTs, 'MPEG-TS').catch(() => {});
+                this.loadStream(fallbackTs, 'MPEG-TS').catch(() => {
+                  fallbackToNative();
+                });
                 return;
               }
-              this.handleStreamFreezeRecovery('تم تنشيط مسار البث البديل');
+              fallbackToNative();
               break;
           }
         }
@@ -463,7 +514,7 @@ export class HlsProEngine implements ITvPlayerEngine {
   }
 
   // Build Engine-specific configurations with Look4k Fast Boot optimization
-  private buildHlsConfig(): Partial<HlsConfig> {
+  private buildHlsConfig(startPosition: number = 0): Partial<HlsConfig> {
     const isVlc = this.engineType === 'vlc';
     const isMpv = this.engineType === 'mpv-cinema';
 
@@ -487,6 +538,7 @@ export class HlsProEngine implements ITvPlayerEngine {
     return {
       enableWorker: false,
       lowLatencyMode: false,
+      startPosition: startPosition > 0 ? startPosition : -1,
       backBufferLength: isVlc ? 30 : 10,
       maxBufferLength,
       maxMaxBufferLength,
@@ -986,15 +1038,16 @@ export class HlsProEngine implements ITvPlayerEngine {
 
   public seek(timeInSec: number): void {
     if (this.videoElement) {
-      if (this.videoElement.readyState >= 1) {
+      this.pendingSeekTime = timeInSec;
+      try {
+        this.videoElement.currentTime = timeInSec;
+      } catch (err) {
+        console.warn('[HlsProEngine] Error setting currentTime:', err);
+      }
+      if (this.hls) {
         try {
-          this.videoElement.currentTime = timeInSec;
-          this.pendingSeekTime = null;
-        } catch {
-          this.pendingSeekTime = timeInSec;
-        }
-      } else {
-        this.pendingSeekTime = timeInSec;
+          this.hls.startLoad(timeInSec);
+        } catch {}
       }
     }
   }
