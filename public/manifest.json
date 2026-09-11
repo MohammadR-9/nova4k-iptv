@@ -1,17 +1,27 @@
 {
   "id": "com.nova.iptvpro",
-  "name": "NOVA 4K ULTRA",
+  "name": "NOVA 4K ULTRA - Smart TV & Cinema OTT",
   "short_name": "NOVA 4K",
   "description": "Smart IPTV Player - Live TV, Movies & Series in 4K Ultra HD",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui",
+    "fullscreen"
+  ],
   "background_color": "#07090e",
   "theme_color": "#06b6d4",
   "orientation": "any",
   "lang": "ar",
   "dir": "rtl",
-  "scope": "./",
-  "categories": ["entertainment", "video"],
+  "categories": [
+    "entertainment",
+    "video",
+    "photo"
+  ],
   "icons": [
     {
       "src": "./icons/icon-192.png",
@@ -38,11 +48,52 @@
       "purpose": "maskable"
     }
   ],
+  "screenshots": [
+    {
+      "src": "./screenshots/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "NOVA 4K Smart TV & Desktop View"
+    },
+    {
+      "src": "./screenshots/screenshot-mobile.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "NOVA 4K Mobile & Tablet View"
+    }
+  ],
   "shortcuts": [
     {
-      "name": "Live TV",
+      "name": "البث المباشر - Live TV",
+      "short_name": "Live TV",
       "url": "./#live",
-      "description": "Open Live TV channels"
+      "description": "تشغيل قنوات البث المباشر فوراً",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "مكتبة الأفلام - Movies",
+      "short_name": "Movies",
+      "url": "./#vod",
+      "description": "مشاهدة أحدث الأفلام العالمية",
+      "icons": [
+        {
+          "src": "./icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
-  ]
+  ],
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "auto"
+  }
 }
