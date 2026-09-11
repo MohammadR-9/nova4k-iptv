@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Zap, Volume2, LogOut, X, Wrench, Check, Maximize2, Monitor, Cpu } from 'lucide-react';
+import { Settings, Zap, Volume2, LogOut, X, Wrench, Check, Maximize2, Monitor, Cpu, Users } from 'lucide-react';
 import { UserAccount } from '../../types/iptv.types';
 import { SERVER_CONFIG } from '../../config/server.config';
 import { PlayerEngineType, AspectRatioMode } from '../../player/types';
@@ -11,6 +11,7 @@ interface SettingsModalProps {
   account: UserAccount;
   onLogout: () => void;
   isDevUnlocked: boolean;
+  onOpenProfiles?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ 
@@ -18,7 +19,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose, 
   account, 
   onLogout,
-  isDevUnlocked 
+  isDevUnlocked,
+  onOpenProfiles
 }) => {
   const [playerEngine, setPlayerEngine] = useState<PlayerEngineType>(() => {
     return (localStorage.getItem('nova_default_engine') as PlayerEngineType) || 'exoplayer';
@@ -408,21 +410,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
 
           {/* Section 4: Account & Logout */}
-          <div className="flex items-center justify-between bg-surface-elevated/70 border border-white/5 rounded-2xl p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-elevated/70 border border-white/5 rounded-2xl p-5">
             <div>
               <span className="text-xs text-slate-400 block mb-1">الحساب النشط:</span>
               <span className="text-base font-black text-white font-mono">{account.username}</span>
               <span className="text-xs text-accent-gold mr-3">متبقي {account.daysRemaining} يوم</span>
             </div>
 
-            <button
-              data-nav-id="btn-logout"
-              onClick={onLogout}
-              className="tv-focusable px-5 py-2.5 bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 hover:text-red-300 rounded-xl font-bold text-sm flex items-center gap-2 transition-all"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>تبديل البروفايل / خروج</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {onOpenProfiles && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenProfiles();
+                  }}
+                  className="px-4 py-2.5 bg-gradient-to-r from-purple-600/30 to-cyan-500/20 hover:border-nova-cyan border border-nova-purple/40 text-white rounded-xl font-bold text-sm flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  <Users className="w-4 h-4 text-nova-cyan" />
+                  <span>البروفايلات المحفوظة</span>
+                </button>
+              )}
+
+              <button
+                data-nav-id="btn-logout"
+                onClick={onLogout}
+                className="tv-focusable px-4 py-2.5 bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 hover:text-red-300 rounded-xl font-bold text-sm flex items-center gap-2 transition-all cursor-pointer active:scale-95"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>تبديل البروفايل / خروج</span>
+              </button>
+            </div>
           </div>
 
         </div>

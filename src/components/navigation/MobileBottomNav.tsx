@@ -1,17 +1,19 @@
 import React from 'react';
-import { Tv, Film, Clapperboard, Home, Settings } from 'lucide-react';
+import { Tv, Film, Clapperboard, Home, Settings, Users } from 'lucide-react';
 import { ScreenType } from '../../types/iptv.types';
 
 interface MobileBottomNavProps {
   currentScreen: ScreenType;
   onNavigate: (screen: ScreenType) => void;
   onOpenSettings: () => void;
+  onOpenProfiles?: () => void;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   currentScreen,
   onNavigate,
-  onOpenSettings
+  onOpenSettings,
+  onOpenProfiles
 }) => {
   const [isFullscreen, setIsFullscreen] = React.useState(() => {
     return typeof document !== 'undefined' && document.documentElement.getAttribute('data-fullscreen') === 'true';
@@ -65,6 +67,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       isActive: currentScreen === 'series'
     },
     {
+      id: 'profiles' as any,
+      label: 'البروفايلات',
+      icon: Users,
+      action: onOpenProfiles || (() => {}),
+      isActive: false
+    },
+    {
       id: 'settings' as ScreenType,
       label: 'الإعدادات',
       icon: Settings,
@@ -74,7 +83,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#0c1018]/95 backdrop-blur-2xl border-t border-white/10 px-3 py-2 flex items-center justify-around select-none shadow-[0_-8px_24px_rgba(0,0,0,0.6)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#0c1018]/95 backdrop-blur-2xl border-t border-white/10 px-1.5 py-1.5 flex items-center justify-around select-none shadow-[0_-8px_24px_rgba(0,0,0,0.6)]">
       {navItems.map((item) => {
         const Icon = item.icon;
         return (
@@ -82,7 +91,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             key={item.id}
             type="button"
             onClick={item.action}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all touch-manipulation ${
+            className={`flex flex-col items-center justify-center py-0.5 px-1.5 rounded-xl transition-all touch-manipulation cursor-pointer ${
               item.isActive
                 ? 'text-accent-cyan scale-105'
                 : 'text-slate-400 hover:text-slate-200 active:scale-95'
@@ -91,12 +100,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <div className={`relative p-1.5 rounded-xl transition-all ${
               item.isActive ? 'bg-cyan-500/15' : ''
             }`}>
-              <Icon className="w-5 h-5" />
+              <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
               {item.isActive && (
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent-cyan animate-pulse"></span>
               )}
             </div>
-            <span className={`text-[10px] font-bold mt-0.5 ${
+            <span className={`text-[9px] sm:text-[10px] font-bold mt-0.5 tracking-tight ${
               item.isActive ? 'text-accent-cyan font-black' : 'text-slate-400'
             }`}>
               {item.label}

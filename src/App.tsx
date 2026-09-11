@@ -18,6 +18,7 @@ import { SettingsModal } from './components/settings/SettingsModal';
 import { ExitConfirmModal, ExitModalMode } from './components/common/ExitConfirmModal';
 import { AdminPortalScreen } from './components/admin/AdminPortalScreen';
 import { MobileBottomNav } from './components/navigation/MobileBottomNav';
+import { ProfilesModal } from './components/profile/ProfilesModal';
 import { isMobileDevice } from './utils/device';
 import { ScreenOrientationManager } from './utils/orientation';
 import { webOSAdapter } from './utils/webos.adapter';
@@ -36,6 +37,7 @@ export const App: React.FC = () => {
   // Modals & HUD state
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isProfilesModalOpen, setIsProfilesModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   const [exitModalMode, setExitModalMode] = useState<ExitModalMode>('account-logout');
   const [isDevUnlocked, setIsDevUnlocked] = useState(false);
@@ -383,6 +385,13 @@ export const App: React.FC = () => {
     setCurrentScreen('home');
   };
 
+  const handleSwitchAccount = (newAccount: UserAccount) => {
+    setAccount(newAccount);
+    setScreenHistory([]);
+    setCurrentScreen('home');
+    setIsProfilesModalOpen(false);
+  };
+
   const handleLogout = () => {
     // Total media wipeout: stops all streams and silences Web Audio completely
     PlayerManager.killActiveStreams();
@@ -462,8 +471,18 @@ export const App: React.FC = () => {
           account={account}
           onLogout={handleLogout}
           isDevUnlocked={isDevUnlocked}
+          onOpenProfiles={() => setIsProfilesModalOpen(true)}
         />
       )}
+
+      {/* SAVED PROFILES & SUBSCRIPTION MANAGER MODAL */}
+      <ProfilesModal
+        isOpen={isProfilesModalOpen}
+        onClose={() => setIsProfilesModalOpen(false)}
+        currentAccount={account}
+        onSwitchAccount={handleSwitchAccount}
+        onLogout={handleLogout}
+      />
 
       {/* EXIT / LOGOUT CONFIRMATION MODAL */}
       <ExitConfirmModal
@@ -504,6 +523,7 @@ export const App: React.FC = () => {
           onNavigate={navigateTo}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenDiagnostics={() => setIsDiagnosticsOpen(true)}
+          onOpenProfiles={() => setIsProfilesModalOpen(true)}
           onRequestExit={() => {
             setExitModalMode('account-logout');
             setIsExitModalOpen(true);
@@ -554,6 +574,7 @@ export const App: React.FC = () => {
           currentScreen={currentScreen}
           onNavigate={navigateTo}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenProfiles={() => setIsProfilesModalOpen(true)}
         />
       )}
 

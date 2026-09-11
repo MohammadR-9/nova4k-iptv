@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   Tv, Film, Clapperboard, Star, 
   Settings, Wifi, Clock, Calendar, 
-  Play, Sparkles, Shield, User, Crown,
-  Activity, Radio, ChevronLeft, Zap, Power
+  Play, Sparkles, Shield, Crown,
+  Activity, Radio, ChevronLeft, Zap, Power, Users
 } from 'lucide-react';
 import { UserAccount, ScreenType } from '../../types/iptv.types';
 import { spatialNav } from '../../navigation/spatialNav';
 import { FavoritesService } from '../../services/favorites.service';
 import { XtreamService } from '../../services/xtream.service';
+import { ProfileService } from '../../services/profile.service';
 import { isMobileDevice } from '../../utils/device';
 
 interface HomeDashboardProps {
@@ -17,6 +18,7 @@ interface HomeDashboardProps {
   onOpenSettings: () => void;
   onOpenDiagnostics: () => void;
   onRequestExit?: () => void;
+  onOpenProfiles?: () => void;
 }
 
 
@@ -25,17 +27,20 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onNavigate, 
   onOpenSettings,
   onOpenDiagnostics,
-  onRequestExit
+  onRequestExit,
+  onOpenProfiles
 }) => {
   const [currentTime, setCurrentTime] = useState('');
   const [activeEventIndex, setActiveEventIndex] = useState(0);
   const [favsCount, setFavsCount] = useState(0);
+  const [savedProfilesCount, setSavedProfilesCount] = useState(0);
   const [liveCategories, setLiveCategories] = useState<{ category_id: string; category_name: string }[]>([]);
   const [vodCategories, setVodCategories] = useState<{ category_id: string; category_name: string }[]>([]);
 
-  // Fetch real categories from server for ticker
+  // Fetch real categories from server for ticker and load profiles count
   useEffect(() => {
     setFavsCount(FavoritesService.count());
+    setSavedProfilesCount(ProfileService.getProfiles().length);
     XtreamService.getLiveCategories().then(cats => {
       setLiveCategories(cats.slice(0, 6));
     }).catch(() => {});
@@ -128,14 +133,33 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   ULTRA
                 </span>
               </div>
-              <p className="text-[9px] font-bold text-emerald-400 font-mono flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onOpenProfiles}
+                className="text-[9px] font-bold text-emerald-400 font-mono flex items-center gap-1 hover:text-white transition-colors cursor-pointer text-right"
+                title="البروفايل النشط - اضغط للتبديل"
+              >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span>{account.username} • {account.daysRemaining} يوم</span>
-              </p>
+              </button>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5">
+            {onOpenProfiles && (
+              <button
+                type="button"
+                onClick={onOpenProfiles}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600/30 to-cyan-500/20 border border-nova-purple/40 hover:border-nova-cyan text-white active:scale-95 transition-all cursor-pointer shadow-sm"
+                title="البروفايلات والاشتراكات المحفوظة"
+              >
+                <Users className="w-3.5 h-3.5 text-nova-cyan" />
+                <span className="text-xs font-bold">البروفايلات</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-nova-purple text-[9px] font-black font-mono">
+                  {savedProfilesCount}
+                </span>
+              </button>
+            )}
             <button
               type="button"
               onClick={onOpenDiagnostics}
@@ -195,6 +219,35 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <span>مشاهدة</span>
           </button>
         </div>
+
+        {/* 3.5 Dedicated Mobile Saved Profiles Quick Banner */}
+        {onOpenProfiles && (
+          <div 
+            onClick={onOpenProfiles}
+            className="w-full my-1.5 p-3 rounded-2xl bg-gradient-to-r from-purple-950/60 via-slate-900/80 to-cyan-950/60 border border-nova-purple/40 hover:border-nova-cyan flex items-center justify-between gap-2.5 z-10 cursor-pointer active:scale-[0.99] transition-all shadow-md"
+          >
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              <div className="w-9 h-9 rounded-xl bg-nova-purple/20 border border-nova-purple/40 flex items-center justify-center text-nova-purple shrink-0">
+                <Users className="w-5 h-5" />
+              </div>
+              <div className="text-right overflow-hidden">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-black text-white truncate">البروفايلات والاشتراكات</span>
+                  <span className="px-1.5 py-0.5 rounded bg-nova-purple/30 text-nova-purple text-[9px] font-black font-mono shrink-0">
+                    {savedProfilesCount} محفوظ
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-300 truncate mt-0.5">
+                  النشط: <span className="text-emerald-400 font-bold">{account.username}</span> • اضغط للتبديل أو إضافة اشتراك
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-nova-cyan text-xs font-bold shrink-0">
+              <span>إدارة</span>
+              <ChevronLeft className="w-4 h-4" />
+            </div>
+          </div>
+        )}
 
         {/* 4. Compact 2x2 Portals Grid */}
         <div className="w-full grid grid-cols-2 gap-2.5 my-2.5 z-10">
@@ -371,6 +424,25 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </span>
             )}
           </button>
+
+          {/* Profiles Button */}
+          {onOpenProfiles && (
+            <button
+              data-nav-id="dock-profiles"
+              data-nav-group="quick-dock"
+              onClick={onOpenProfiles}
+              className="tv-focusable relative w-13 h-13 rounded-2xl flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-nova-purple hover:bg-nova-purple/10 border border-transparent hover:border-nova-purple/40 transition-all cursor-pointer group"
+              title="البروفايلات والاشتراكات (Profiles)"
+            >
+              <Users className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <span className="text-[9px] font-bold">البروفايلات</span>
+              {savedProfilesCount > 0 && (
+                <span className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-nova-purple text-white text-[9px] font-black flex items-center justify-center font-mono">
+                  {savedProfilesCount}
+                </span>
+              )}
+            </button>
+          )}
         </nav>
 
         {/* Bottom Utility Tools */}
@@ -441,12 +513,21 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
           {/* Top Live Metrics */}
           <div className="flex items-center gap-2 md:gap-3 flex-wrap text-xs">
-            {/* Account Badge */}
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-elevated/90 border border-white/10 rounded-xl text-xs font-semibold text-slate-200 shadow-sm">
-              <User className="w-3.5 h-3.5 text-nova-cyan" />
+            {/* Account / Profiles Badge */}
+            <div 
+              onClick={onOpenProfiles}
+              className="flex items-center gap-1.5 px-3 py-1 bg-surface-elevated/90 border border-white/10 hover:border-nova-purple/60 hover:bg-nova-purple/10 rounded-xl text-xs font-semibold text-slate-200 shadow-sm cursor-pointer transition-all"
+              title="إدارة وتبديل البروفايلات والاشتراكات"
+            >
+              <Users className="w-3.5 h-3.5 text-nova-cyan" />
               <span className="font-mono">{account.username}</span>
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-emerald-400 font-bold text-[10px] sm:text-xs">Active VIP</span>
+              {savedProfilesCount > 1 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-nova-purple text-white text-[9px] font-black font-mono">
+                  {savedProfilesCount}
+                </span>
+              )}
             </div>
 
             {/* Server Ping */}
