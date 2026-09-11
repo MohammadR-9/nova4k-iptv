@@ -212,6 +212,8 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
     }
   }, [isPlaying, resetControlsTimer]);
 
+  const isHlsStream = (url: string) => /\.m3u8(\?|$)/i.test(url);
+
   // 5. Initialize Player & Load stream
   useEffect(() => {
     let isMounted = true;
@@ -230,13 +232,13 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
           setIsPlaying(true);
           setAudioTracks(player.current.getAudioTracks());
           setSubtitleTracks(player.current.getSubtitleTracks());
-          // Execute deferred resume seek — video is now actually ready
+          // Execute deferred resume seek if not yet at target
           if (pendingResumeRef.current !== null) {
             const t = pendingResumeRef.current;
-            pendingResumeRef.current = null;
-            player.current.seek(t);
-            setCurrentTime(t);
-            currentTimeRef.current = t;
+            const vid = player.current.getVideoElement();
+            if (!vid || Math.abs(vid.currentTime - t) > 2.0) {
+              player.current.seek(t);
+            }
           }
         },
         onBuffering: (buffering) => {
@@ -260,6 +262,17 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
         },
         onTimeUpdate: (cur, dur) => {
           if (!isMounted) return;
+
+          // Guard: If we are in the middle of resuming, ignore premature timeupdates before seek finishes
+          if (pendingResumeRef.current !== null) {
+            if (cur < pendingResumeRef.current - 2.5) {
+              // Video is still starting up, suppress this timeupdate to preserve UI and resume point
+              return;
+            }
+            // Successfully reached the resume target!
+            pendingResumeRef.current = null;
+          }
+
           currentTimeRef.current = cur;
           setCurrentTime(cur);
           const effectiveDur = dur > 0 ? dur : (item.durationSec || 7200);
@@ -287,7 +300,7 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
         }, 150);
       } else {
         // Determine stream protocol and start immediately from 0
-        const streamType = item.streamUrl.endsWith('.m3u8') ? 'HLS' : 'MP4';
+        const streamType: 'HLS' | 'MP4' = isHlsStream(item.streamUrl) ? 'HLS' : 'MP4';
         player.current.loadStream(item.streamUrl, streamType, 0).then(() => {
           if (!isMounted) return;
           setAudioTracks(player.current.getAudioTracks());
@@ -308,6 +321,10 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
 
     // 6. Periodic auto-save every 3s
     const saveInterval = setInterval(() => {
+      // Guard: Never save if waiting for resume seek
+      if (pendingResumeRef.current !== null) {
+        return;
+      }
       if (currentTimeRef.current >= 5) {
         const dur = durationRef.current > 0 ? durationRef.current : (item.durationSec || 7200);
         VodResumeService.saveResumePoint(item.id, currentTimeRef.current, dur);
@@ -321,8 +338,8 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       if (seekFeedbackTimeoutRef.current) clearTimeout(seekFeedbackTimeoutRef.current);
       if (bufferingDebounceRef.current) clearTimeout(bufferingDebounceRef.current);
       
-      // Save progress on exit
-      if (currentTimeRef.current >= 5) {
+      // Save progress on exit (only if not waiting for resume seek)
+      if (pendingResumeRef.current === null && currentTimeRef.current >= 5) {
         const dur = durationRef.current > 0 ? durationRef.current : (item.durationSec || 7200);
         VodResumeService.saveResumePoint(item.id, currentTimeRef.current, dur);
       }
@@ -339,13 +356,9 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       currentTimeRef.current = targetTime;
       setIsBuffering(true);
 
-      const streamType = item.streamUrl.endsWith('.m3u8') ? 'HLS' : 'MP4';
+      const streamType: 'HLS' | 'MP4' = isHlsStream(item.streamUrl) ? 'HLS' : 'MP4';
       player.current.loadStream(item.streamUrl, streamType, targetTime).then(() => {
         player.current.seek(targetTime);
-        const vid = player.current.getVideoElement();
-        if (vid) {
-          try { vid.currentTime = targetTime; } catch {}
-        }
         player.current.play();
         setIsPlaying(true);
         setAudioTracks(player.current.getAudioTracks());
@@ -372,7 +385,7 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
     currentTimeRef.current = 0;
     setIsBuffering(true);
 
-    const streamType = item.streamUrl.endsWith('.m3u8') ? 'HLS' : 'MP4';
+    const streamType: 'HLS' | 'MP4' = isHlsStream(item.streamUrl) ? 'HLS' : 'MP4';
     player.current.loadStream(item.streamUrl, streamType, 0).then(() => {
       player.current.seek(0);
       player.current.play();
@@ -526,7 +539,24 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    const handleAndroidBack = () => {
+      if (showResumePrompt) {
+        handleResumeDecline();
+        return;
+      }
+      if (showAudioModal || showSubtitleModal) {
+        setShowAudioModal(false);
+        setShowSubtitleModal(false);
+        resetControlsTimer();
+        return;
+      }
+      handleExit();
+    };
+    window.addEventListener('android-back-button', handleAndroidBack);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('android-back-button', handleAndroidBack);
+    };
   }, [
     showControls, 
     isPlaying, 
@@ -556,7 +586,7 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
 
   // 10. Exit player cleanly
   const handleExit = () => {
-    if (currentTimeRef.current >= 10) {
+    if (pendingResumeRef.current === null && currentTimeRef.current >= 10) {
       VodResumeService.saveResumePoint(item.id, currentTimeRef.current, durationRef.current);
     }
     player.current.stop();
@@ -751,43 +781,43 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
 
       {/* 8. 10-FOOT CINEMATIC OSD LAYER */}
       <div 
-        className={`absolute inset-0 z-20 flex flex-col justify-between p-12 transition-opacity duration-300 pointer-events-none ${
+        className={`absolute inset-0 z-20 flex flex-col justify-between p-2.5 sm:p-5 md:p-8 lg:p-12 transition-opacity duration-300 pointer-events-none ${
           showControls ? 'opacity-100' : 'opacity-0'
         }`}
       >
         {/* TOP BAR */}
         <div className="w-full flex items-center justify-between pointer-events-auto">
           {/* Back button & Title */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 max-w-[75%]">
             <button
               data-nav-id="btn-vod-player-back"
               onClick={handleExit}
-              className="tv-focusable p-3 rounded-2xl bg-black/60 hover:bg-black/90 border border-white/20 text-slate-300 hover:text-white backdrop-blur-md"
+              className="tv-focusable p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-black/60 hover:bg-black/90 border border-white/20 text-slate-300 hover:text-white backdrop-blur-md shrink-0"
               title="رجوع (Back)"
             >
-              <ArrowLeft className="w-6 h-6" />
+              <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
 
-            <div className="text-right">
-              <div className="flex items-center gap-2">
-                <Film className="w-5 h-5 text-accent-cyan" />
-                <h1 className="text-2xl font-black text-white drop-shadow-md">{item.title}</h1>
+            <div className="text-right overflow-hidden">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Film className="w-4 h-4 sm:w-5 sm:h-5 text-accent-cyan shrink-0" />
+                <h1 className="text-sm sm:text-lg md:text-2xl font-black text-white drop-shadow-md truncate">{item.title}</h1>
               </div>
               {item.subtitle && (
-                <p className="text-xs font-bold text-accent-cyan/90 mt-0.5">{item.subtitle}</p>
+                <p className="text-[10px] sm:text-xs font-bold text-accent-cyan/90 mt-0.5 truncate">{item.subtitle}</p>
               )}
             </div>
           </div>
 
           {/* Badges & System Clock */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-white/15 rounded-xl text-xs font-bold text-slate-300 backdrop-blur-md">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <div className="hidden sm:flex items-center gap-2 sm:gap-4 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 bg-black/60 border border-white/15 rounded-xl text-[10px] sm:text-xs font-bold text-slate-300 backdrop-blur-md">
+              <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
               <span>4K UHD • HDR10</span>
             </div>
 
-            <div className="flex items-center gap-2 px-4 py-1.5 bg-black/60 border border-white/15 rounded-xl text-base font-bold font-mono text-white backdrop-blur-md">
-              <Clock className="w-4 h-4 text-accent-cyan" />
+            <div className="flex items-center gap-1.5 sm:gap-2 px-3 py-1 sm:px-4 sm:py-1.5 bg-black/60 border border-white/15 rounded-xl text-xs sm:text-base font-bold font-mono text-white backdrop-blur-md">
+              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-accent-cyan" />
               <span>{systemClock}</span>
             </div>
           </div>
@@ -795,17 +825,17 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
 
         {/* Dynamic Toast Feedback Banner */}
         {toastMessage && (
-          <div className="self-center px-5 py-2.5 rounded-2xl bg-black/85 border border-accent-cyan/50 text-white font-bold text-sm shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 pointer-events-none flex items-center gap-2">
+          <div className="self-center px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl bg-black/85 border border-accent-cyan/50 text-white font-bold text-xs sm:text-sm shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 pointer-events-none flex items-center gap-2">
             <Maximize2 className="w-4 h-4 text-accent-cyan" />
             <span>{toastMessage}</span>
           </div>
         )}
 
         {/* BOTTOM TIMELINE & CONTROL BAR */}
-        <div className="w-full flex flex-col gap-4 pointer-events-auto bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 rounded-3xl border border-white/10 backdrop-blur-md shadow-2xl">
+        <div className="w-full flex flex-col gap-2 sm:gap-4 pointer-events-auto bg-gradient-to-t from-black/95 via-black/75 to-transparent p-2.5 sm:p-4 md:p-6 rounded-2xl md:rounded-3xl border border-white/10 backdrop-blur-md shadow-2xl">
           
           {/* TIMELINE SEEK BAR */}
-          <div className="w-full flex flex-col gap-2">
+          <div className="w-full flex flex-col gap-1.5 sm:gap-2">
             <div 
               data-nav-id="timeline-slider"
               dir="ltr"
@@ -818,7 +848,7 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
                 player.current.seek(target);
                 setCurrentTime(target);
               }}
-              className="tv-focusable relative w-full h-3 bg-white/15 rounded-full cursor-pointer overflow-hidden group"
+              className="tv-focusable relative w-full h-2 sm:h-3 bg-white/15 rounded-full cursor-pointer overflow-hidden group"
             >
               {/* Progress Played Bar */}
               <div 
@@ -826,23 +856,23 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
                 style={{ width: `${progressPercent}%` }}
               >
                 {/* Scrubber thumb glow */}
-                <span className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white shadow-[0_0_12px_rgba(0,229,255,1)]"></span>
+                <span className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-white shadow-[0_0_12px_rgba(0,229,255,1)]"></span>
               </div>
             </div>
 
             {/* TIMESTAMPS COUNTER */}
-            <div className="w-full flex items-center justify-between text-xs font-mono font-bold text-slate-300">
-              <div className="flex items-center gap-2">
-                <span className="text-white text-sm">{VodResumeService.formatTime(currentTime)}</span>
+            <div className="w-full flex items-center justify-between text-[10px] sm:text-xs font-mono font-bold text-slate-300">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="text-white text-xs sm:text-sm">{VodResumeService.formatTime(currentTime)}</span>
                 <span className="text-slate-500">/</span>
-                <span className="text-slate-400 text-sm">{VodResumeService.formatTime(duration)}</span>
+                <span className="text-slate-400 text-xs sm:text-sm">{VodResumeService.formatTime(duration)}</span>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
                 <span className="text-slate-400">
                   المتبقي: -{VodResumeService.formatTime(Math.max(0, duration - currentTime))}
                 </span>
-                <span className="px-2 py-0.5 rounded bg-white/10 text-[10px] text-accent-cyan font-bold font-sans">
+                <span className="px-1.5 py-0.5 sm:px-2 rounded bg-white/10 text-[9px] sm:text-[10px] text-accent-cyan font-bold font-sans">
                   {Math.round(progressPercent)}%
                 </span>
               </div>
@@ -850,10 +880,10 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
           </div>
 
           {/* CONTROL BUTTONS ROW */}
-          <div className="w-full flex items-center justify-between pt-2">
+          <div className="w-full flex items-center justify-between pt-1 sm:pt-2 gap-2">
             
             {/* Left side: Navigation hint */}
-            <div className="text-[11px] text-slate-400 flex items-center gap-3">
+            <div className="text-[11px] text-slate-400 hidden lg:flex items-center gap-3">
               <span>الأسهم يمين/يسار: 10 ثوانٍ</span>
               <span>•</span>
               <span>OK: تشغيل/إيقاف</span>
@@ -862,16 +892,16 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
             </div>
 
             {/* Center controls: Skip 60, Rewind 10, Play/Pause, Forward 10, Skip 60 */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5 sm:gap-3 md:gap-4">
               
               {/* -60s Skip Backward */}
               <button
                 data-nav-id="btn-seek-back-60"
                 onClick={() => seekRelative(-60)}
-                className="tv-focusable p-3 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white flex items-center gap-1 text-xs font-mono font-bold"
+                className="tv-focusable hidden md:flex p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white items-center gap-1 text-[10px] sm:text-xs font-mono font-bold"
                 title="تأخير دقيقة (-60s)"
               >
-                <RotateCcw className="w-5 h-5" />
+                <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>60s-</span>
               </button>
 
@@ -879,10 +909,10 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
               <button
                 data-nav-id="btn-seek-back-10"
                 onClick={() => seekRelative(-10)}
-                className="tv-focusable p-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 hover:text-white flex items-center gap-1 text-xs font-mono font-bold"
+                className="tv-focusable p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 hover:text-white flex items-center gap-1 text-[10px] sm:text-xs font-mono font-bold"
                 title="تأخير 10 ثوانٍ"
               >
-                <Rewind className="w-5 h-5" />
+                <Rewind className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>10s-</span>
               </button>
 
@@ -890,13 +920,13 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
               <button
                 data-nav-id="btn-play-pause"
                 onClick={togglePlayPause}
-                className="tv-focusable w-16 h-16 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 flex items-center justify-center shadow-lg shadow-cyan-500/30 scale-105"
+                className="tv-focusable w-10 h-10 sm:w-13 sm:h-13 md:w-16 md:h-16 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 flex items-center justify-center shadow-lg shadow-cyan-500/30 scale-105 shrink-0"
                 title={isPlaying ? 'إيقاف مؤقت (Space/OK)' : 'تشغيل (Space/OK)'}
               >
                 {isPlaying ? (
-                  <Pause className="w-7 h-7 fill-current" />
+                  <Pause className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 fill-current" />
                 ) : (
-                  <Play className="w-7 h-7 fill-current ml-1" />
+                  <Play className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 fill-current ml-0.5" />
                 )}
               </button>
 
@@ -904,27 +934,27 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
               <button
                 data-nav-id="btn-seek-fwd-10"
                 onClick={() => seekRelative(10)}
-                className="tv-focusable p-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 hover:text-white flex items-center gap-1 text-xs font-mono font-bold"
+                className="tv-focusable p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 hover:text-white flex items-center gap-1 text-[10px] sm:text-xs font-mono font-bold"
                 title="تقديم 10 ثوانٍ"
               >
                 <span>+10s</span>
-                <FastForward className="w-5 h-5" />
+                <FastForward className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
               {/* +60s Skip Forward */}
               <button
                 data-nav-id="btn-seek-fwd-60"
                 onClick={() => seekRelative(60)}
-                className="tv-focusable p-3 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white flex items-center gap-1 text-xs font-mono font-bold"
+                className="tv-focusable hidden md:flex p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white items-center gap-1 text-[10px] sm:text-xs font-mono font-bold"
                 title="تقديم دقيقة (+60s)"
               >
                 <span>+60s</span>
-                <RotateCw className="w-5 h-5" />
+                <RotateCw className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
 
             {/* Right side: Engine, Aspect Ratio, Audio & Subtitles */}
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {/* Player Engine Switcher */}
               <button
                 data-nav-id="btn-vod-engine"
@@ -934,8 +964,8 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
                   const next = engines[(idx + 1) % engines.length];
                   handleEngineSwitch(next);
                 }}
-                className="tv-focusable px-3 py-2 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-200 text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer"
-                title="تبديل محرك التشغيل (ExoPlayer, VLC, MX Player, MPV Cinema)"
+                className="tv-focusable px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-200 text-[10px] sm:text-xs font-mono font-bold flex items-center gap-1 cursor-pointer"
+                title="تبديل محرك التشغيل"
               >
                 <Zap className="w-3.5 h-3.5 text-amber-400" />
                 <span>
@@ -949,20 +979,11 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
               <button
                 data-nav-id="btn-vod-aspect"
                 onClick={handleCycleAspectRatio}
-                className="tv-focusable px-3 py-2 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-200 text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer"
-                title="تغيير أبعاد الشاشة (ملء الشاشة، سينمائي، كلاسيكي 4:3، سواد على الأطراف)"
+                className="tv-focusable px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-200 text-[10px] sm:text-xs font-mono font-bold flex items-center gap-1 cursor-pointer"
+                title="تغيير أبعاد الشاشة"
               >
                 <Maximize2 className="w-3.5 h-3.5 text-accent-cyan" />
-                <span>
-                  {aspectRatio === 'fit' ? 'FIT' : 
-                   aspectRatio === 'fill' ? 'ملء الشاشة' : 
-                   aspectRatio === 'stretch' ? 'تمديد' : 
-                   aspectRatio === 'cinema' ? 'سينما 21:9' : 
-                   aspectRatio === '16:9' ? '16:9' : 
-                   aspectRatio === '4:3' ? 'سواد 4:3' : 
-                   aspectRatio === 'letterbox' ? 'سواد سينما' : 
-                   aspectRatio === 'zoom-120' ? '120%' : '150%'}
-                </span>
+                <span>{aspectRatio.toUpperCase()}</span>
               </button>
 
               <button
@@ -971,10 +992,11 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
                   setShowAudioModal(true);
                   setTimeout(() => spatialNav.setFocus('audio-opt-0'), 100);
                 }}
-                className="tv-focusable px-3.5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white flex items-center gap-2 text-xs font-bold"
+                className="tv-focusable px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white flex items-center gap-1 text-[10px] sm:text-xs font-bold"
+                title="الصوت والمعلقين"
               >
-                <Volume2 className="w-4 h-4 text-accent-cyan" />
-                <span>الصوت</span>
+                <Volume2 className="w-3.5 h-3.5 text-accent-cyan" />
+                <span className="hidden sm:inline">الصوت</span>
               </button>
 
               <button
@@ -983,10 +1005,11 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
                   setShowSubtitleModal(true);
                   setTimeout(() => spatialNav.setFocus('sub-opt--1'), 100);
                 }}
-                className="tv-focusable px-3.5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white flex items-center gap-2 text-xs font-bold"
+                className="tv-focusable px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white flex items-center gap-1 text-[10px] sm:text-xs font-bold"
+                title="الترجمة والدبلجة"
               >
-                <Subtitles className="w-4 h-4 text-purple-400" />
-                <span>الترجمة</span>
+                <Subtitles className="w-3.5 h-3.5 text-purple-400" />
+                <span className="hidden sm:inline">الترجمة</span>
               </button>
             </div>
 

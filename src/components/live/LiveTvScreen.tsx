@@ -538,18 +538,60 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
     resetMobileOverlayTimer();
   };
 
-  // Intercept back / ESC in fullscreen to return to list rather than exit screen
+  // Intercept Android hardware Back & ESC key for multi-level navigation
   useEffect(() => {
+    const handleBackAction = () => {
+      if (screenshotModalOpen) {
+        setScreenshotModalOpen(false);
+        return;
+      }
+      if (audioSettingsOpen) {
+        setAudioSettingsOpen(false);
+        return;
+      }
+      if (subtitleModalOpen) {
+        setSubtitleModalOpen(false);
+        return;
+      }
+      if (reorderModalOpen) {
+        setReorderModalOpen(false);
+        return;
+      }
+      if (isDrawerOpen) {
+        setIsDrawerOpen(false);
+        return;
+      }
+      if (isFullscreen) {
+        handleExitMobileFullscreen();
+        return;
+      }
+      // Cleanly exit to Home
+      onBackToHome();
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.keyCode === 10009 || e.keyCode === 27 || e.key === 'Escape') && isFullscreen) {
+      if (e.keyCode === 10009 || e.keyCode === 27 || e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        handleExitMobileFullscreen();
+        handleBackAction();
       }
     };
+
     window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isFullscreen]);
+    window.addEventListener('android-back-button', handleBackAction);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('android-back-button', handleBackAction);
+    };
+  }, [
+    screenshotModalOpen,
+    audioSettingsOpen,
+    subtitleModalOpen,
+    reorderModalOpen,
+    isDrawerOpen,
+    isFullscreen,
+    onBackToHome
+  ]);
 
   // Clean exit orientation on unmount
   useEffect(() => {
@@ -1311,93 +1353,93 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
           </aside>
 
           {/* Floating TV OSD Action Toolbar */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 p-2 px-4 bg-slate-950/80 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="absolute bottom-2 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 sm:gap-2 p-1.5 px-2.5 sm:p-2 sm:px-4 bg-slate-950/85 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-xl max-w-[96vw] overflow-x-auto scrollbar-none animate-in fade-in slide-in-from-bottom-4 duration-300">
             <button
               onClick={() => setIsDrawerOpen(prev => !prev)}
-              className={`p-2 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all ${
+              className={`p-1.5 px-2 sm:p-2 sm:px-3 rounded-xl border flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold transition-all shrink-0 ${
                 isDrawerOpen
                   ? 'bg-cyan-500/20 border-accent-cyan text-white'
                   : 'bg-white/5 border-white/10 text-slate-300 hover:text-white'
               }`}
               title="عرض / إخفاء قائمة القنوات"
             >
-              <Tv className="w-4 h-4 text-accent-cyan" />
-              <span className="hidden sm:inline">القنوات</span>
+              <Tv className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-accent-cyan" />
+              <span className="hidden md:inline">القنوات</span>
             </button>
 
-            <div className="h-4 w-px bg-white/10" />
+            <div className="h-3.5 sm:h-4 w-px bg-white/10 shrink-0" />
 
             <button
               onClick={async () => {
                 const fs = await FullscreenUtil.toggleFullscreen(videoContainerRef.current);
                 setIsFullscreen(fs);
               }}
-              className={`p-2 px-3 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all ${
+              className={`p-1.5 px-2 sm:p-2 sm:px-3 rounded-xl border flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold transition-all shrink-0 ${
                 isFullscreen
                   ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-sm'
                   : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200 hover:text-white'
               }`}
               title="ملء الشاشة بالكامل"
             >
-              <Maximize2 className="w-4 h-4 text-nova-cyan" />
-              <span className="hidden sm:inline">{isFullscreen ? 'تصغير' : 'ملء الشاشة'}</span>
+              <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-nova-cyan" />
+              <span className="hidden md:inline">{isFullscreen ? 'تصغير' : 'ملء الشاشة'}</span>
             </button>
 
-            <div className="h-4 w-px bg-white/10" />
+            <div className="h-3.5 sm:h-4 w-px bg-white/10 shrink-0" />
 
             <button
               onClick={handleCycleAspectRatio}
-              className="p-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-mono font-bold flex items-center gap-1.5 transition-all"
+              className="p-1.5 px-2 sm:p-2 sm:px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-[10px] sm:text-xs font-mono font-bold flex items-center gap-1 transition-all shrink-0"
               title="أبعاد الشاشة"
             >
-              <span className="text-[11px] text-nova-cyan">الأبعاد:</span>
+              <span className="hidden md:inline text-[11px] text-nova-cyan">الأبعاد:</span>
               <span>{aspectRatio.toUpperCase()}</span>
             </button>
 
             <button
               onClick={() => setSubtitleModalOpen(true)}
-              className="p-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-purple-400 flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer"
+              className="p-1.5 px-2 sm:p-2 sm:px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-purple-400 flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0"
               title="الترجمة والدبلجة"
             >
-              <Subtitles className="w-4 h-4 text-purple-400" />
-              <span className="hidden sm:inline">الترجمة والدبلجة</span>
+              <Subtitles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
+              <span className="hidden md:inline">الترجمة</span>
             </button>
 
             <button
               onClick={() => setAudioSettingsOpen(true)}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-accent-cyan transition-all cursor-pointer"
+              className="p-1.5 px-2 sm:p-2 sm:px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-accent-cyan transition-all cursor-pointer shrink-0"
               title="إعدادات الصوت والمعلقين"
             >
-              <Volume2 className="w-4 h-4" />
+              <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
 
             <button
               onClick={handleTakeScreenshot}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-cyan-400 transition-all"
+              className="p-1.5 px-2 sm:p-2 sm:px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-cyan-400 transition-all shrink-0"
               title="التقاط لقطة شاشة"
             >
-              <Camera className="w-4 h-4" />
+              <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
 
             <button
               onClick={handleToggleRecording}
-              className={`p-2 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all ${
+              className={`p-1.5 px-2 sm:p-2 sm:px-3 rounded-xl border flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-bold transition-all shrink-0 ${
                 recordingState === 'recording'
                   ? 'bg-red-500/20 border-red-500 text-red-400 animate-pulse'
                   : 'bg-white/5 border-white/10 text-slate-200 hover:text-red-400'
               }`}
               title="تسجيل البث الحي (DVR)"
             >
-              <Video className="w-4 h-4 text-red-500" />
-              <span className="hidden sm:inline">تسجيل</span>
+              <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-500" />
+              <span className="hidden md:inline">تسجيل</span>
             </button>
 
             <button
               onClick={onOpenDiagnostics}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-accent-cyan transition-all"
+              className="p-1.5 px-2 sm:p-2 sm:px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-accent-cyan transition-all shrink-0"
               title="لوحة تشخيص البث"
             >
-              <Settings2 className="w-4 h-4" />
+              <Settings2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
         </>

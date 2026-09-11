@@ -52,6 +52,9 @@ export class HlsProEngine implements ITvPlayerEngine {
   private recoveryCount = 0;
   private isRecovering = false;
   private pendingSeekTime: number | null = null;
+  private isSeekConfirmed = false;
+  private seekWatchdogTimer: any = null;
+  private seekAttemptCount = 0;
 
   // Diagnostics
   private diagnosticsInterval: any = null;
@@ -78,6 +81,93 @@ export class HlsProEngine implements ITvPlayerEngine {
     this.diagnostics.engineType = initialEngine;
   }
 
+  private applyPendingSeek(): void {
+    if (this.pendingSeekTime === null || !this.videoElement) return;
+    const target = this.pendingSeekTime;
+
+    // Cannot seek until metadata is loaded
+    if (this.videoElement.readyState < 1) {
+      return;
+    }
+
+    const current = this.videoElement.currentTime;
+
+    // If current time is already within tolerance of target, mark confirmed!
+    if (Math.abs(current - target) <= 1.5) {
+      this.isSeekConfirmed = true;
+      this.pendingSeekTime = null;
+      this.clearSeekWatchdog();
+      return;
+    }
+
+    // Direct seek on HTML5 video element
+    try {
+      this.videoElement.currentTime = target;
+    } catch (err) {
+      console.warn('[HlsProEngine] applyPendingSeek error:', err);
+    }
+
+    if (this.hls && this.currentStreamType === 'HLS') {
+      try {
+        this.hls.startLoad(target);
+      } catch {}
+    }
+  }
+
+  private startSeekWatchdog(target: number): void {
+    this.clearSeekWatchdog();
+    this.pendingSeekTime = target;
+    this.isSeekConfirmed = false;
+    this.seekAttemptCount = 0;
+
+    this.seekWatchdogTimer = setInterval(() => {
+      if (!this.videoElement || this.pendingSeekTime === null) {
+        this.clearSeekWatchdog();
+        return;
+      }
+
+      this.seekAttemptCount++;
+      const cur = this.videoElement.currentTime;
+
+      // Check if seek is satisfied
+      if (Math.abs(cur - this.pendingSeekTime) <= 2.0 && cur > 0) {
+        this.isSeekConfirmed = true;
+        this.pendingSeekTime = null;
+        this.clearSeekWatchdog();
+        this.events.onBuffering?.(false);
+        return;
+      }
+
+      // If video metadata is ready, retry applying seek if not currently seeking
+      if (this.videoElement.readyState >= 1 && !this.videoElement.seeking) {
+        try {
+          this.videoElement.currentTime = this.pendingSeekTime;
+        } catch {}
+      }
+
+      // If video paused during playback attempt, ensure playback continues
+      if (this._isPlaying && this.videoElement.paused) {
+        this.videoElement.play().catch(() => {});
+      }
+
+      // Timeout after 20 attempts (~5 seconds)
+      if (this.seekAttemptCount >= 20) {
+        console.warn(`[HlsProEngine] Seek watchdog finished after ${this.seekAttemptCount} attempts. Current: ${cur}`);
+        this.isSeekConfirmed = true;
+        this.pendingSeekTime = null;
+        this.clearSeekWatchdog();
+      }
+    }, 250);
+  }
+
+  private clearSeekWatchdog(): void {
+    if (this.seekWatchdogTimer) {
+      clearInterval(this.seekWatchdogTimer);
+      this.seekWatchdogTimer = null;
+    }
+    this.seekAttemptCount = 0;
+  }
+
   public initialize(containerElement: HTMLElement, events: PlayerEvents): void {
     this.events = events;
 
@@ -96,15 +186,9 @@ export class HlsProEngine implements ITvPlayerEngine {
     this.videoElement.addEventListener('playing', () => {
       this._isPlaying = true;
       this.isRecovering = false;
+      this.applyPendingSeek();
       this.events.onBuffering?.(false);
       this.events.onPlaying?.();
-      if (this.pendingSeekTime !== null && this.videoElement) {
-        const target = this.pendingSeekTime;
-        this.pendingSeekTime = null;
-        try {
-          this.videoElement.currentTime = target;
-        } catch {}
-      }
     });
 
     this.videoElement.addEventListener('waiting', () => {
@@ -113,39 +197,53 @@ export class HlsProEngine implements ITvPlayerEngine {
     });
 
     this.videoElement.addEventListener('loadedmetadata', () => {
+      this.applyPendingSeek();
       this.events.onBuffering?.(false);
-      if (this.pendingSeekTime !== null && this.videoElement) {
-        const target = this.pendingSeekTime;
-        this.pendingSeekTime = null;
-        try {
-          this.videoElement.currentTime = target;
-        } catch {}
-      }
     });
 
     this.videoElement.addEventListener('canplay', () => {
+      this.applyPendingSeek();
       this.events.onBuffering?.(false);
-      if (this.pendingSeekTime !== null && this.videoElement) {
-        const target = this.pendingSeekTime;
-        this.pendingSeekTime = null;
-        try {
-          this.videoElement.currentTime = target;
-        } catch {}
-      }
     });
 
     this.videoElement.addEventListener('loadeddata', () => {
+      this.applyPendingSeek();
+      this.events.onBuffering?.(false);
+    });
+
+    this.videoElement.addEventListener('seeked', () => {
+      if (this.videoElement && this.pendingSeekTime !== null) {
+        if (Math.abs(this.videoElement.currentTime - this.pendingSeekTime) <= 2.5) {
+          this.isSeekConfirmed = true;
+          this.pendingSeekTime = null;
+          this.clearSeekWatchdog();
+        }
+      }
       this.events.onBuffering?.(false);
     });
 
     this.videoElement.addEventListener('timeupdate', () => {
-      if (this.videoElement) {
-        if (this.videoElement.currentTime > 0) {
-          this.events.onBuffering?.(false);
+      if (!this.videoElement) return;
+      const cur = this.videoElement.currentTime;
+
+      // CRITICAL: Block bogus early timeupdate events from overwriting resume position!
+      if (this.pendingSeekTime !== null && !this.isSeekConfirmed) {
+        if (cur < this.pendingSeekTime - 2.5) {
+          // Still at initial seconds before seek took effect, suppress this timeupdate!
+          return;
+        } else {
+          // Reached or surpassed the target position!
+          this.isSeekConfirmed = true;
+          this.pendingSeekTime = null;
+          this.clearSeekWatchdog();
         }
-        this.lastPlaybackTime = this.videoElement.currentTime;
-        this.events.onTimeUpdate?.(this.videoElement.currentTime, this.videoElement.duration || 0);
       }
+
+      if (cur > 0) {
+        this.events.onBuffering?.(false);
+      }
+      this.lastPlaybackTime = cur;
+      this.events.onTimeUpdate?.(cur, this.videoElement.duration || 0);
     });
 
     this.videoElement.addEventListener('error', (e) => {
@@ -175,6 +273,12 @@ export class HlsProEngine implements ITvPlayerEngine {
 
     if (startPosition > 0) {
       this.pendingSeekTime = startPosition;
+      this.isSeekConfirmed = false;
+      this.startSeekWatchdog(startPosition);
+    } else {
+      this.pendingSeekTime = null;
+      this.isSeekConfirmed = true;
+      this.clearSeekWatchdog();
     }
 
     if (this.stallDetectorTimer) clearTimeout(this.stallDetectorTimer);
@@ -298,17 +402,27 @@ export class HlsProEngine implements ITvPlayerEngine {
             console.warn('[HlsProEngine] mpegts player error:', errType, errDetail);
             this.events.onBuffering?.(false);
             if (url.includes('.ts') && !this.isRecovering) {
+              this.isRecovering = true;
               const fallbackM3u8 = url.replace(/\.ts(\?|$)/, '.m3u8$1');
               console.log('[HlsProEngine] mpegts error, attempting .m3u8 fallback:', fallbackM3u8);
-              this.loadStream(fallbackM3u8, 'HLS').catch(() => {});
+              this.loadStream(fallbackM3u8, 'HLS').catch(() => {
+                if (this.videoElement) {
+                  try { this.mpegtsPlayer?.destroy(); } catch {}
+                  this.mpegtsPlayer = null;
+                  this.videoElement.src = streamUrl;
+                  this.videoElement.load();
+                  this.videoElement.play().catch(() => {});
+                }
+              });
               return;
             }
-            if (this.videoElement && !this.videoElement.src) {
+            if (this.videoElement) {
               try {
                 this.mpegtsPlayer?.destroy();
               } catch {}
               this.mpegtsPlayer = null;
               this.videoElement.src = streamUrl;
+              this.videoElement.load();
               this.videoElement.play().catch(() => {});
             }
           });
@@ -343,14 +457,8 @@ export class HlsProEngine implements ITvPlayerEngine {
         this.videoElement!.src = streamUrl;
         this.videoElement!.load();
 
-        if (startPosition > 0 && this.videoElement) {
-          const seekDirect = () => {
-            if (this.videoElement) {
-              try { this.videoElement.currentTime = startPosition; } catch {}
-            }
-          };
-          this.videoElement.addEventListener('loadedmetadata', seekDirect, { once: true });
-          this.videoElement.addEventListener('canplay', seekDirect, { once: true });
+        if (startPosition > 0) {
+          this.applyPendingSeek();
         }
 
         if (this.gainNode) {
@@ -361,23 +469,19 @@ export class HlsProEngine implements ITvPlayerEngine {
         if (playPromise !== undefined) {
           playPromise.then(() => {
             if (this.videoElement) this.videoElement.muted = false;
+            this.applyPendingSeek();
             this.events.onBuffering?.(false);
-            if (this.pendingSeekTime !== null && this.videoElement) {
-              const target = this.pendingSeekTime;
-              this.pendingSeekTime = null;
-              this.videoElement.currentTime = target;
-            }
           }).catch(() => {
             if (this.videoElement) {
               this.videoElement.muted = true;
               this.videoElement.play().catch(() => {});
+              this.applyPendingSeek();
             }
             this.events.onBuffering?.(false);
           });
         }
 
         this.applyAspectRatioTransform();
-        this.events.onBuffering?.(false);
         resolve();
         return;
       }
@@ -398,6 +502,11 @@ export class HlsProEngine implements ITvPlayerEngine {
 
         if (this.bufferingSafetyTimeout) clearTimeout(this.bufferingSafetyTimeout);
         this.applyAspectRatioTransform();
+
+        if (startPosition > 0) {
+          this.applyPendingSeek();
+        }
+
         if (this.videoElement) {
           const playPromise = this.videoElement.play();
           if (playPromise !== undefined) {
@@ -406,12 +515,14 @@ export class HlsProEngine implements ITvPlayerEngine {
               if (this.gainNode) {
                 try { this.gainNode.gain.setValueAtTime(this.volumeLevel, 0); } catch {}
               }
+              this.applyPendingSeek();
               this.events.onBuffering?.(false);
             }).catch((err) => {
               console.warn('[HlsProEngine] Play blocked or needs muted autoplay:', err);
               if (this.videoElement) {
                 this.videoElement.muted = true;
                 this.videoElement.play().catch(() => {});
+                this.applyPendingSeek();
               }
               this.events.onBuffering?.(false);
             });
@@ -455,18 +566,29 @@ export class HlsProEngine implements ITvPlayerEngine {
             this.hls.destroy();
             this.hls = null;
           }
+          if (this.mpegtsPlayer) {
+            this.mpegtsPlayer.destroy();
+            this.mpegtsPlayer = null;
+          }
         } catch {}
-        this.videoElement.src = streamUrl;
+        // If it was .m3u8, Android Chromium native player cannot play HLS, so try .ts directly!
+        const nativeUrl = streamUrl.includes('.m3u8') ? streamUrl.replace(/\.m3u8(\?|$)/, '.ts$1') : streamUrl;
+        this.videoElement.src = nativeUrl;
         this.videoElement.load();
+        if (this.pendingSeekTime !== null) {
+          this.applyPendingSeek();
+        }
         const p = this.videoElement.play();
         if (p !== undefined) {
           p.then(() => {
             if (this.videoElement) this.videoElement.muted = false;
+            this.applyPendingSeek();
             this.events.onBuffering?.(false);
           }).catch(() => {
             if (this.videoElement) {
               this.videoElement.muted = true;
               this.videoElement.play().catch(() => {});
+              this.applyPendingSeek();
             }
             this.events.onBuffering?.(false);
           });
@@ -477,6 +599,18 @@ export class HlsProEngine implements ITvPlayerEngine {
       hlsInstance.on(Hls.Events.ERROR, (_event, data) => {
         if (sessionId !== this.currentLoadSessionId) return;
         if (data.fatal) {
+          console.warn('[HlsProEngine] Hls.js fatal error:', data.type, data.details);
+          // If HLS fails on an .m3u8 stream, immediately try .ts stream (standard universal Xtream Codes stream)
+          if (url.includes('.m3u8') && !this.isRecovering) {
+            this.isRecovering = true;
+            const fallbackTs = url.replace(/\.m3u8(\?|$)/, '.ts$1');
+            console.log('[HlsProEngine] HLS playback failed, falling back to MPEG-TS:', fallbackTs);
+            this.loadStream(fallbackTs, 'MPEG-TS').catch(() => {
+              fallbackToNative();
+            });
+            return;
+          }
+
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
               console.warn('[HlsProEngine] Network freeze detected. Attempting native fallback if persistent...');
@@ -496,15 +630,6 @@ export class HlsProEngine implements ITvPlayerEngine {
               this.hls?.recoverMediaError();
               break;
             default:
-              console.warn('[HlsProEngine] Fatal error, attempting native video fallback...');
-              if (url.includes('.m3u8') && !this.isRecovering) {
-                const fallbackTs = url.replace(/\.m3u8(\?|$)/, '.ts$1');
-                console.log('[HlsProEngine] Hls.js fatal error, attempting .ts fallback:', fallbackTs);
-                this.loadStream(fallbackTs, 'MPEG-TS').catch(() => {
-                  fallbackToNative();
-                });
-                return;
-              }
               fallbackToNative();
               break;
           }
@@ -1007,6 +1132,8 @@ export class HlsProEngine implements ITvPlayerEngine {
   public stop(): void {
     this.currentLoadSessionId++;
     this.pendingSeekTime = null;
+    this.isSeekConfirmed = false;
+    this.clearSeekWatchdog();
     if (this.videoElement) {
       this.videoElement.pause();
       this.videoElement.muted = true;
@@ -1038,15 +1165,22 @@ export class HlsProEngine implements ITvPlayerEngine {
 
   public seek(timeInSec: number): void {
     if (this.videoElement) {
-      this.pendingSeekTime = timeInSec;
-      try {
-        this.videoElement.currentTime = timeInSec;
-      } catch (err) {
-        console.warn('[HlsProEngine] Error setting currentTime:', err);
-      }
-      if (this.hls) {
+      const target = Math.max(0, timeInSec);
+      this.pendingSeekTime = target;
+      this.isSeekConfirmed = false;
+      this.startSeekWatchdog(target);
+
+      if (this.videoElement.readyState >= 1) {
         try {
-          this.hls.startLoad(timeInSec);
+          this.videoElement.currentTime = target;
+        } catch (err) {
+          console.warn('[HlsProEngine] Error setting currentTime in seek():', err);
+        }
+      }
+
+      if (this.hls && this.currentStreamType === 'HLS') {
+        try {
+          this.hls.startLoad(target);
         } catch {}
       }
     }
@@ -1074,6 +1208,7 @@ export class HlsProEngine implements ITvPlayerEngine {
 
   public destroy(): void {
     this.stop();
+    this.clearSeekWatchdog();
     if (this.diagnosticsInterval) clearInterval(this.diagnosticsInterval);
     if (this.stallDetectorTimer) clearTimeout(this.stallDetectorTimer);
     if (this.recordingTimer) clearInterval(this.recordingTimer);

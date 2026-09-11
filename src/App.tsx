@@ -19,6 +19,7 @@ import { ExitConfirmModal, ExitModalMode } from './components/common/ExitConfirm
 import { AdminPortalScreen } from './components/admin/AdminPortalScreen';
 import { MobileBottomNav } from './components/navigation/MobileBottomNav';
 import { isMobileDevice } from './utils/device';
+import { ScreenOrientationManager } from './utils/orientation';
 import { webOSAdapter } from './utils/webos.adapter';
 
 export const App: React.FC = () => {
@@ -78,8 +79,18 @@ export const App: React.FC = () => {
   // 2. Global Keydown Router for Remote & Keyboard
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const code = e.keyCode;
+      const code = e.keyCode || (e.key === 'Escape' ? 27 : 0);
       setLastRemoteKey(code);
+
+      // Dedicated Escape/Back key handler
+      if (e.key === 'Escape' || e.key === 'Back' || e.key === 'GoBack') {
+        if (currentScreen === 'vod-player' || currentScreen === 'live') {
+          // Handled by dedicated screen component
+          return;
+        }
+        handleBackPress();
+        return;
+      }
 
       // Check if user is actively typing in any input, textarea or editable element
       const target = e.target as HTMLElement | null;
@@ -183,8 +194,19 @@ export const App: React.FC = () => {
       }
     };
 
+    const handleAndroidBack = () => {
+      if (currentScreen === 'vod-player' || currentScreen === 'live') {
+        return;
+      }
+      handleBackPress();
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('android-back-button', handleAndroidBack);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('android-back-button', handleAndroidBack);
+    };
   }, [currentScreen, isDiagnosticsOpen, isSettingsOpen, isExitModalOpen, colorSequence, account, screenHistory]);
 
   const navigateTo = (screen: ScreenType) => {
@@ -231,6 +253,7 @@ export const App: React.FC = () => {
     // 2. Inside VOD Player
     if (currentScreen === 'vod-player') {
       PlayerManager.stopAll();
+      ScreenOrientationManager.exitLandscapeImmersive();
       if (screenHistory.length > 0) {
         const prev = screenHistory[screenHistory.length - 1];
         setScreenHistory(h => h.slice(0, -1));
