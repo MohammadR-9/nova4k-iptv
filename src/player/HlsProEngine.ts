@@ -51,6 +51,7 @@ export class HlsProEngine implements ITvPlayerEngine {
   private lastPlaybackTime = 0;
   private recoveryCount = 0;
   private isRecovering = false;
+  private pendingSeekTime: number | null = null;
 
   // Diagnostics
   private diagnosticsInterval: any = null;
@@ -97,6 +98,13 @@ export class HlsProEngine implements ITvPlayerEngine {
       this.isRecovering = false;
       this.events.onBuffering?.(false);
       this.events.onPlaying?.();
+      if (this.pendingSeekTime !== null && this.videoElement) {
+        const target = this.pendingSeekTime;
+        this.pendingSeekTime = null;
+        try {
+          this.videoElement.currentTime = target;
+        } catch {}
+      }
     });
 
     this.videoElement.addEventListener('waiting', () => {
@@ -104,8 +112,26 @@ export class HlsProEngine implements ITvPlayerEngine {
       this.scheduleStallRecoveryCheck();
     });
 
+    this.videoElement.addEventListener('loadedmetadata', () => {
+      this.events.onBuffering?.(false);
+      if (this.pendingSeekTime !== null && this.videoElement) {
+        const target = this.pendingSeekTime;
+        this.pendingSeekTime = null;
+        try {
+          this.videoElement.currentTime = target;
+        } catch {}
+      }
+    });
+
     this.videoElement.addEventListener('canplay', () => {
       this.events.onBuffering?.(false);
+      if (this.pendingSeekTime !== null && this.videoElement) {
+        const target = this.pendingSeekTime;
+        this.pendingSeekTime = null;
+        try {
+          this.videoElement.currentTime = target;
+        } catch {}
+      }
     });
 
     this.videoElement.addEventListener('loadeddata', () => {
@@ -299,21 +325,42 @@ export class HlsProEngine implements ITvPlayerEngine {
         }
       }
 
-      // Direct MP4 or native browser HLS fallback
-      if (streamUrl.endsWith('.mp4') || !Hls.isSupported()) {
+      // Direct MP4 / MKV / VOD video file playback or native browser HLS fallback
+      const isDirectMediaFile = streamType === 'MP4' ||
+                                /\.(mp4|mkv|avi|mov|webm|flv)(\?|$)/i.test(url) ||
+                                /\.(mp4|mkv|avi|mov|webm|flv)(\?|$)/i.test(streamUrl) ||
+                                !Hls.isSupported();
+
+      if (isDirectMediaFile) {
         if (sessionId !== this.currentLoadSessionId) return;
         if (this.bufferingSafetyTimeout) clearTimeout(this.bufferingSafetyTimeout);
+
         this.videoElement!.src = streamUrl;
-        this.videoElement!.muted = false;
+        this.videoElement!.load();
+
         if (this.gainNode) {
           try { this.gainNode.gain.setValueAtTime(this.volumeLevel, 0); } catch {}
         }
-        this.videoElement!.play().catch(() => {
-          if (this.videoElement) {
-            this.videoElement.muted = true;
-            this.videoElement.play().catch(() => {});
-          }
-        });
+
+        const playPromise = this.videoElement!.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            if (this.videoElement) this.videoElement.muted = false;
+            this.events.onBuffering?.(false);
+            if (this.pendingSeekTime !== null && this.videoElement) {
+              const target = this.pendingSeekTime;
+              this.pendingSeekTime = null;
+              this.videoElement.currentTime = target;
+            }
+          }).catch(() => {
+            if (this.videoElement) {
+              this.videoElement.muted = true;
+              this.videoElement.play().catch(() => {});
+            }
+            this.events.onBuffering?.(false);
+          });
+        }
+
         this.applyAspectRatioTransform();
         this.events.onBuffering?.(false);
         resolve();
@@ -877,7 +924,25 @@ export class HlsProEngine implements ITvPlayerEngine {
 
   // Playback Control
   public play(): void {
-    this.videoElement?.play().catch(() => {});
+    if (this.videoElement) {
+      const p = this.videoElement.play();
+      if (p !== undefined) {
+        p.then(() => {
+          this._isPlaying = true;
+          this.events.onBuffering?.(false);
+          this.events.onPlaying?.();
+        }).catch(() => {
+          if (this.videoElement) {
+            this.videoElement.muted = true;
+            this.videoElement.play().then(() => {
+              this._isPlaying = true;
+              this.events.onBuffering?.(false);
+              this.events.onPlaying?.();
+            }).catch(() => {});
+          }
+        });
+      }
+    }
     this._isPlaying = true;
   }
 
@@ -888,6 +953,7 @@ export class HlsProEngine implements ITvPlayerEngine {
 
   public stop(): void {
     this.currentLoadSessionId++;
+    this.pendingSeekTime = null;
     if (this.videoElement) {
       this.videoElement.pause();
       this.videoElement.muted = true;
@@ -919,7 +985,16 @@ export class HlsProEngine implements ITvPlayerEngine {
 
   public seek(timeInSec: number): void {
     if (this.videoElement) {
-      this.videoElement.currentTime = timeInSec;
+      if (this.videoElement.readyState >= 1) {
+        try {
+          this.videoElement.currentTime = timeInSec;
+          this.pendingSeekTime = null;
+        } catch {
+          this.pendingSeekTime = timeInSec;
+        }
+      } else {
+        this.pendingSeekTime = timeInSec;
+      }
     }
   }
 

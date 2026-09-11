@@ -65,6 +65,19 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
   const [activeEngine, setActiveEngine] = useState<PlayerEngineType>('exoplayer');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Watchdog: guarantee buffering spinner never gets stuck on VOD playback
+  useEffect(() => {
+    let timer: any;
+    if (isBuffering) {
+      timer = setTimeout(() => {
+        setIsBuffering(false);
+      }, 3000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isBuffering]);
+
   const handleCycleAspectRatio = () => {
     const modes: AspectRatioMode[] = [
       'fit', 'fill', 'stretch', 'cinema', '16:9', '4:3', 'letterbox', 'zoom-120', 'zoom-150'
@@ -249,6 +262,13 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       if (saved && saved.currentTimeSec > 10) {
         setSavedResume(saved);
         setShowResumePrompt(true);
+        setTimeout(() => {
+          spatialNav.setFocus('btn-resume-accept');
+        }, 150);
+      } else {
+        setTimeout(() => {
+          spatialNav.setFocus('btn-play-pause');
+        }, 200);
       }
 
       // Determine stream protocol
@@ -264,11 +284,6 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
         setIsBuffering(false);
       });
     }
-
-    // Default initial focus
-    setTimeout(() => {
-      spatialNav.setFocus('btn-play-pause');
-    }, 200);
 
     resetControlsTimer();
 
@@ -297,11 +312,20 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
   // 7. Resume Dialog handlers
   const handleResumeAccept = () => {
     if (savedResume) {
-      // Defer the seek — video may not be ready yet.
-      // pendingResumeRef is consumed inside onPlaying callback.
-      pendingResumeRef.current = savedResume.currentTimeSec;
-      setCurrentTime(savedResume.currentTimeSec);
-      // Show a simple toast (auto-disappears in 2.5s) instead of center feedback
+      const targetTime = savedResume.currentTimeSec;
+      pendingResumeRef.current = targetTime;
+      setCurrentTime(targetTime);
+      currentTimeRef.current = targetTime;
+
+      // Immediately seek and start playback
+      try {
+        player.current.seek(targetTime);
+        player.current.play();
+        setIsPlaying(true);
+      } catch (err) {
+        console.warn('[VodPlayer] Error during resume seek:', err);
+      }
+
       setToastMessage(`⏩ استئناف من ${savedResume.formattedTime}`);
       setTimeout(() => setToastMessage(null), 2500);
     }
@@ -311,9 +335,18 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
   };
 
   const handleResumeDecline = () => {
-    // Just clear the resume point — stream already starts from beginning
+    // Clear resume point and play from beginning
     VodResumeService.clearResumePoint(item.id);
-    pendingResumeRef.current = null; // cancel any pending resume
+    pendingResumeRef.current = null;
+    try {
+      player.current.seek(0);
+      setCurrentTime(0);
+      currentTimeRef.current = 0;
+      player.current.play();
+      setIsPlaying(true);
+    } catch (err) {
+      console.warn('[VodPlayer] Error during restart seek:', err);
+    }
     setShowResumePrompt(false);
     resetControlsTimer();
     setTimeout(() => spatialNav.setFocus('btn-play-pause'), 100);
@@ -324,11 +357,32 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
     const handleKeyDown = (e: KeyboardEvent) => {
       const code = e.keyCode;
 
-      // When resume prompt is shown, only navigate within prompt
+      // When resume prompt is shown, navigate within prompt
       if (showResumePrompt) {
         if (code === TV_KEYS.RETURN || code === TV_KEYS.BACKSPACE || code === TV_KEYS.ESCAPE) {
           e.preventDefault();
           handleResumeDecline();
+          return;
+        }
+        if (code === TV_KEYS.ENTER) {
+          e.preventDefault();
+          const curFocus = spatialNav.getCurrentFocus();
+          if (curFocus === 'btn-resume-decline') {
+            handleResumeDecline();
+          } else {
+            handleResumeAccept();
+          }
+          return;
+        }
+        if (code === TV_KEYS.RIGHT) {
+          e.preventDefault();
+          spatialNav.setFocus('btn-resume-accept');
+          return;
+        }
+        if (code === TV_KEYS.LEFT) {
+          e.preventDefault();
+          spatialNav.setFocus('btn-resume-decline');
+          return;
         }
         return;
       }
