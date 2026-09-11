@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   KeyRound, User, Lock, Sparkles, ShieldCheck, 
-  AlertCircle, Wrench, Globe, ChevronDown, ChevronUp, Info, Copy
+  AlertCircle, Wrench, Globe, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { ActivationService } from '../../services/activation.service';
 import { XtreamService } from '../../services/xtream.service';
@@ -26,13 +26,14 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [urlHistory, setUrlHistory] = useState<SavedServer[]>(() => UrlHistoryService.getHistory());
-  const [serverUrl, setServerUrl] = useState<string>(() => {
+  
+  // Load primary server url from saved history or fallback to master default
+  const [serverUrl, setServerUrl] = useState(() => {
     const hist = UrlHistoryService.getHistory();
     return hist[0]?.url || SERVER_CONFIG.getMasterDns();
   });
   
   const [showAdvancedServer, setShowAdvancedServer] = useState(false);
-  const [showDemoCodesHelp, setShowDemoCodesHelp] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -109,19 +110,6 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const fillDemoCode = (demoCode: string) => {
-    setCode(demoCode);
-    setErrorMsg(null);
-    setTimeout(() => spatialNav.setFocus('btn-submit-code'), 100);
-  };
-
-  const fillDemoCreds = (u: string, p: string) => {
-    setUsername(u);
-    setPassword(p);
-    setErrorMsg(null);
-    setTimeout(() => spatialNav.setFocus('btn-submit-creds'), 100);
   };
 
   return (
@@ -288,69 +276,6 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
               </p>
             </div>
 
-            {/* Demo Codes Helper Toggle (To let tester test real authorized codes) */}
-            <div className="w-full">
-              <button
-                type="button"
-                onClick={() => setShowDemoCodesHelp(!showDemoCodesHelp)}
-                className="w-full text-right text-xs text-accent-cyan hover:underline flex items-center justify-between py-1 px-1"
-              >
-                <span className="flex items-center gap-1.5 font-bold">
-                  <Info className="w-3.5 h-3.5" />
-                  <span>عرض الأكواد المعتمدة في النظام للتجربة</span>
-                </span>
-                {showDemoCodesHelp ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              </button>
-
-              {showDemoCodesHelp && (
-                <div className="mt-2 p-3 rounded-2xl bg-white/5 border border-white/10 space-y-2 text-right text-xs">
-                  <div 
-                    onClick={() => fillDemoCode('NOVA-4K')}
-                    className="p-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-between cursor-pointer"
-                  >
-                    <div>
-                      <div className="font-mono font-bold text-nova-cyan">NOVA-4K</div>
-                      <div className="text-[11px] text-slate-300">باقة NOVA 4K ULTRA الملكية (365 يوم)</div>
-                    </div>
-                    <Copy className="w-4 h-4 text-nova-cyan" />
-                  </div>
-
-                  <div 
-                    onClick={() => fillDemoCode('NOVA-ULTRA')}
-                    className="p-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 flex items-center justify-between cursor-pointer"
-                  >
-                    <div>
-                      <div className="font-mono font-bold text-purple-300">NOVA-ULTRA</div>
-                      <div className="text-[11px] text-slate-300">باقة NOVA 4K Ultra سينما ورياضة (180 يوم)</div>
-                    </div>
-                    <Copy className="w-4 h-4 text-purple-300" />
-                  </div>
-
-                  <div 
-                    onClick={() => fillDemoCode('882419')}
-                    className="p-2.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 flex items-center justify-between cursor-pointer"
-                  >
-                    <div>
-                      <div className="font-mono font-bold text-sky-400">882419</div>
-                      <div className="text-[11px] text-slate-300">كود الدخول السريع VIP (365 يوم)</div>
-                    </div>
-                    <Copy className="w-4 h-4 text-sky-400" />
-                  </div>
-
-                  <div 
-                    onClick={() => fillDemoCode('DEMO-2026')}
-                    className="p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 flex items-center justify-between cursor-pointer"
-                  >
-                    <div>
-                      <div className="font-mono font-bold text-amber-400">DEMO-2026</div>
-                      <div className="text-[11px] text-slate-300">حساب تجريبي رسمي (48 ساعة)</div>
-                    </div>
-                    <Copy className="w-4 h-4 text-amber-400" />
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Optional Advanced Server Toggle (Hidden if Admin enforces Unified DNS) */}
             {!SERVER_CONFIG.isServerUrlHidden() && (
               <div className="w-full">
@@ -457,18 +382,6 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
                 />
                 <Lock className="absolute left-4 top-3.5 w-4 h-4 md:w-5 md:h-5 text-slate-500" />
               </div>
-            </div>
-
-            {/* Quick Demo Credential Button */}
-            <div className="text-right">
-              <button
-                type="button"
-                onClick={() => fillDemoCreds('vip_user', 'pass7788')}
-                className="text-xs text-accent-cyan hover:underline inline-flex items-center gap-1 font-bold"
-              >
-                <Info className="w-3 h-3" />
-                <span>تجربة حساب VIP الافتراضي (vip_user / pass7788)</span>
-              </button>
             </div>
 
             {/* Optional Advanced Server Toggle for Credentials (Hidden if Admin enforces Unified DNS) */}

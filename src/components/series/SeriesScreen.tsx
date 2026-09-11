@@ -51,6 +51,10 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isEpisodesLoading, setIsEpisodesLoading] = useState<boolean>(false);
 
+  // Global search across all 10,008 series
+  const [masterSearchResults, setMasterSearchResults] = useState<SeriesItem[] | null>(null);
+  const [isSearchingGlobally, setIsSearchingGlobally] = useState<boolean>(false);
+
   // Modal / Detail state for Season & Episode selection
   const [selectedSeries, setSelectedSeries] = useState<SeriesItem | null>(null);
   const [activeSeasonNum, setActiveSeasonNum] = useState<number>(1);
@@ -82,6 +86,9 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
           setFocusedSeries(list[0]);
         }
 
+        // Preload complete master catalog in background for instant global search across all 10,008 series
+        XtreamService.getAllSeriesMaster().catch(() => {});
+
         // Populate Continue Watching from stored resume points
         const resumeMap = VodResumeService.getAllResumePoints();
         const inProgress: { series: SeriesItem; episode: SeriesEpisode; resume: ResumePoint }[] = [];
@@ -108,6 +115,35 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
       spatialNav.setFocus('series-cat-item-0');
     }, 200);
   }, []);
+
+  // Debounced global search across all 10,008 series
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setMasterSearchResults(null);
+      setIsSearchingGlobally(false);
+      return;
+    }
+
+    let isCurrent = true;
+    setIsSearchingGlobally(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await XtreamService.searchSeriesGlobally(q);
+        if (isCurrent) {
+          setMasterSearchResults(res);
+          setIsSearchingGlobally(false);
+        }
+      } catch (e) {
+        if (isCurrent) setIsSearchingGlobally(false);
+      }
+    }, 150);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
 
   // 2. Filter Category
   const handleSelectCategory = async (catId: string) => {
@@ -143,11 +179,14 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
     return categories.filter(c => c.category_name.toLowerCase().includes(q));
   }, [categories, catSearchQuery]);
 
-  // 3. Search & Filter Multi-Attributes
+  // 3. Search & Filter Multi-Attributes (uses master global search across all 10,008 series when searching)
   const filteredSeries = useMemo(() => {
-    let result = allSeries.filter(s => {
-      // Text Search
-      if (searchQuery.trim()) {
+    const isSearching = !!searchQuery.trim();
+    const sourcePool = (isSearching && masterSearchResults !== null) ? masterSearchResults : allSeries;
+
+    let result = sourcePool.filter(s => {
+      // Text Search (if master search results are still resolving, filter active pool as quick fallback)
+      if (isSearching && masterSearchResults === null) {
         const q = searchQuery.toLowerCase().trim();
         const matchName = s.name?.toLowerCase().includes(q) || false;
         const matchCast = s.cast?.toLowerCase().includes(q) || false;
@@ -199,7 +238,7 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
     }
 
     return result;
-  }, [allSeries, searchQuery, quickFilter, yearFilter, ratingFilter, sortBy]);
+  }, [allSeries, masterSearchResults, searchQuery, quickFilter, yearFilter, ratingFilter, sortBy]);
 
   // 4. Open Series Details & Seasons Modal
   const handleOpenSeries = async (series: SeriesItem) => {
@@ -237,7 +276,7 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
   // 6. Handle Keyboard & Remote back button
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.keyCode === TV_KEYS.RETURN || e.keyCode === TV_KEYS.WEBOS_BACK || e.keyCode === TV_KEYS.BACKSPACE || e.keyCode === TV_KEYS.ESCAPE) {
+      if (e.keyCode === TV_KEYS.RETURN || e.keyCode === TV_KEYS.WEBOS_BACK || e.keyCode === TV_KEYS.ESCAPE) {
         if (selectedSeries) {
           e.preventDefault();
           handleCloseModal();
@@ -286,7 +325,7 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
               <div className="flex items-center gap-2">
                 <h1 className="text-base md:text-lg font-black text-white tracking-wide">مكتبة المسلسلات (NOVA 4K ULTRA)</h1>
                 <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">
-                  {filteredSeries.length} مسلسل
+                  {searchQuery.trim() ? `${filteredSeries.length} نتيجة بحث` : `${filteredSeries.length} مسلسل`}
                 </span>
               </div>
             </div>
@@ -322,16 +361,20 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
             )}
           </button>
 
-          {/* Series Search Input */}
-          <div className="relative w-48 md:w-64">
+          {/* Series Global Search Input */}
+          <div className="relative w-52 md:w-72">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث عن مسلسل، ممثل..."
+              placeholder="بحث شامل في كل المسلسلات (10,000)..."
               className="w-full h-9 bg-surface-elevated border border-white/10 rounded-xl px-8 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-400"
             />
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
+            {isSearchingGlobally ? (
+              <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin absolute right-2.5 top-2.5" />
+            ) : (
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
+            )}
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
@@ -580,13 +623,19 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
             </div>
           )}
 
-          {/* Category Header */}
+          {/* Category / Search Header Bar */}
           <div className="flex items-center justify-between pt-1">
             <h3 className="text-sm font-black text-white flex items-center gap-2">
-              <span className="w-1.5 h-4 rounded-full bg-emerald-500 inline-block" />
-              <span>{currentCategoryName}</span>
+              <span className={`w-1.5 h-4 rounded-full ${searchQuery.trim() ? 'bg-cyan-400' : 'bg-emerald-500'} inline-block`} />
+              <span>
+                {searchQuery.trim() 
+                  ? (isSearchingGlobally ? 'جاري البحث الشامل في كافة مكتبة المسلسلات...' : `نتائج البحث الشامل عن: "${searchQuery}"`)
+                  : currentCategoryName}
+              </span>
             </h3>
-            <span className="text-xs text-slate-500 font-mono font-bold">{filteredSeries.length} مسلسل</span>
+            <span className="text-xs text-slate-400 font-mono font-bold">
+              {filteredSeries.length} مسلسل {searchQuery.trim() ? '(بحث شامل)' : ''}
+            </span>
           </div>
 
           {/* 3D Series Posters Grid */}

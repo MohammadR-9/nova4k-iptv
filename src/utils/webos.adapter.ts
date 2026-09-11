@@ -157,8 +157,7 @@ export class WebOSAdapter {
     return (
       keyCode === WebOSAdapter.KEY_CODES.BACK || // webOS 461
       keyCode === 10009 ||                       // Tizen RETURN
-      keyCode === 27 ||                          // ESCAPE
-      keyCode === 8                              // BACKSPACE
+      keyCode === 27                             // ESCAPE
     );
   }
 

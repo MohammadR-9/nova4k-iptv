@@ -85,6 +85,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
   const bufferingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [zappingTimeout, setZappingTimeout] = useState<any>(null);
   const [visibleCount, setVisibleCount] = useState<number>(40);
+  const [isCategoryLoading, setIsCategoryLoading] = useState<boolean>(false);
 
   // Audio mute & autoplay prompt
   const [isMuted, setIsMuted] = useState(false);
@@ -185,7 +186,11 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
         }
 
         if (isMounted) {
-          if (reorderedCats.length > 0) setCategories(reorderedCats);
+          if (reorderedCats.length > 0) {
+            setCategories(reorderedCats);
+            // Background prefetch prominent categories so user clicks are instant 0ms!
+            XtreamService.prefetchLiveCategories(reorderedCats.map(c => c.category_id));
+          }
           if (reorderedChs.length > 0) {
             setAllChannels(reorderedChs);
             setActiveChannel(prev => {
@@ -425,20 +430,34 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
   // Category change channel loader (Instant 0ms memory cache in XtreamService)
   useEffect(() => {
     let isMounted = true;
-    if (selectedCatId === 'favorites') return;
+    if (selectedCatId === 'favorites') {
+      setIsCategoryLoading(false);
+      return;
+    }
+
+    const cached = XtreamService.getCachedLiveChannels(selectedCatId);
+    if (cached && cached.length > 0) {
+      setAllChannels(cached);
+      setIsCategoryLoading(false);
+      return;
+    }
+
+    // Immediately clear previous category channels so they never linger
+    setAllChannels([]);
+    setIsCategoryLoading(true);
 
     const loadCategoryChannels = async () => {
       try {
         const chs = await XtreamService.getLiveChannels(selectedCatId);
-        if (isMounted && chs.length > 0) {
+        if (isMounted) {
           setAllChannels(chs);
-          setActiveChannel(prev => {
-            if (prev && chs.some(c => c.stream_id === prev.stream_id)) return prev;
-            return chs[0];
-          });
         }
       } catch (err) {
         console.warn('[LiveTvScreen] Failed to load channels for category:', selectedCatId, err);
+      } finally {
+        if (isMounted) {
+          setIsCategoryLoading(false);
+        }
       }
     };
 
@@ -702,7 +721,23 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
             }}
             className="flex-1 overflow-y-auto px-2.5 py-2 space-y-1.5 scrollbar-thin scrollbar-thumb-white/10 pb-20"
           >
-            {filteredChannels.length === 0 ? (
+            {isCategoryLoading ? (
+              <div className="p-3 space-y-2 animate-in fade-in duration-200">
+                <div className="flex items-center justify-center gap-2 py-3 text-xs font-bold text-cyan-400">
+                  <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                  <span>جاري تحميل قنوات الباقة...</span>
+                </div>
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-14 rounded-xl bg-white/5 border border-white/5 animate-pulse flex items-center gap-3 px-3">
+                    <div className="w-9 h-9 rounded-lg bg-white/10 shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="w-3/4 h-3 bg-white/10 rounded-md" />
+                      <div className="w-1/2 h-2 bg-white/5 rounded-md" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredChannels.length === 0 ? (
               <div className="h-40 flex flex-col items-center justify-center text-slate-500 text-center p-4">
                 <Search className="w-6 h-6 mb-2 opacity-40" />
                 <p className="text-xs">لم يتم العثور على قنوات تطابق البحث</p>
@@ -986,7 +1021,23 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                   }}
                   className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin scrollbar-thumb-white/10"
                 >
-                  {filteredChannels.length === 0 ? (
+                  {isCategoryLoading ? (
+                    <div className="p-3 space-y-2 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-center gap-2 py-3 text-xs font-bold text-cyan-400">
+                        <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                        <span>جاري تحميل قنوات الباقة...</span>
+                      </div>
+                      {[...Array(7)].map((_, i) => (
+                        <div key={i} className="h-16 rounded-2xl bg-white/5 border border-white/5 animate-pulse flex items-center gap-3 px-3">
+                          <div className="w-10 h-10 rounded-xl bg-white/10 shrink-0" />
+                          <div className="flex-1 space-y-2">
+                            <div className="w-3/4 h-3.5 bg-white/10 rounded-md" />
+                            <div className="w-1/2 h-2.5 bg-white/5 rounded-md" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : filteredChannels.length === 0 ? (
                     <div className="h-48 flex flex-col items-center justify-center text-slate-500 text-center p-4">
                       <Search className="w-8 h-8 mb-2 opacity-40" />
                       <p className="text-xs">لم يتم العثور على قنوات تطابق البحث</p>

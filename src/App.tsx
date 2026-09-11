@@ -15,7 +15,7 @@ import { VodPlayer } from './components/vod/VodPlayer';
 import { FavoritesScreen } from './components/favorites/FavoritesScreen';
 import { DiagnosticsHud } from './components/diagnostics/DiagnosticsHud';
 import { SettingsModal } from './components/settings/SettingsModal';
-import { ExitConfirmModal } from './components/common/ExitConfirmModal';
+import { ExitConfirmModal, ExitModalMode } from './components/common/ExitConfirmModal';
 import { AdminPortalScreen } from './components/admin/AdminPortalScreen';
 import { MobileBottomNav } from './components/navigation/MobileBottomNav';
 import { Smartphone, Monitor, X } from 'lucide-react';
@@ -37,6 +37,7 @@ export const App: React.FC = () => {
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  const [exitModalMode, setExitModalMode] = useState<ExitModalMode>('account-logout');
   const [isDevUnlocked, setIsDevUnlocked] = useState(false);
   
   const [colorSequence, setColorSequence] = useState<number[]>([]);
@@ -107,6 +108,31 @@ export const App: React.FC = () => {
       const code = e.keyCode;
       setLastRemoteKey(code);
 
+      // Check if user is actively typing in any input, textarea or editable element
+      const target = e.target as HTMLElement | null;
+      const isInputFocused = target && (
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        (target as any).isContentEditable
+      );
+
+      // Backspace key (code 8):
+      // User rule: "رز backspace اجعله ل حذف النص وليس الرجوع الى الوراء"
+      // Never trigger back navigation on Backspace. Allow native text deletion when focused.
+      if (code === TV_KEYS.BACKSPACE) {
+        if (isInputFocused) {
+          // Native browser input character deletion
+          return;
+        }
+        // Outside inputs, do not navigate back
+        return;
+      }
+
+      // If user is focused on an input, permit horizontal cursor movement without spatialNav hijacking
+      if (isInputFocused && [TV_KEYS.LEFT, TV_KEYS.RIGHT].includes(code)) {
+        return;
+      }
+
       // Prevent default browser scrolling with arrow keys on TV
       if ([TV_KEYS.UP, TV_KEYS.DOWN, TV_KEYS.LEFT, TV_KEYS.RIGHT].includes(code)) {
         e.preventDefault();
@@ -129,7 +155,7 @@ export const App: React.FC = () => {
 
       // If user is inside VodPlayer, let VodPlayer handle its own arrow seeking & controls!
       if (currentScreen === 'vod-player') {
-        if (code === TV_KEYS.RETURN || code === TV_KEYS.WEBOS_BACK || code === TV_KEYS.BACKSPACE || code === TV_KEYS.ESCAPE) {
+        if (code === TV_KEYS.RETURN || code === TV_KEYS.WEBOS_BACK || code === TV_KEYS.ESCAPE) {
           handleBackPress();
         }
         return;
@@ -155,10 +181,9 @@ export const App: React.FC = () => {
           spatialNav.triggerClick();
           break;
 
-        // Return / Back (Tizen 10009, LG webOS 461, PC Esc/Backspace)
+        // Return / Back (Tizen 10009, LG webOS 461, PC Esc)
         case TV_KEYS.RETURN:
         case TV_KEYS.WEBOS_BACK:
-        case TV_KEYS.BACKSPACE:
         case TV_KEYS.ESCAPE:
           handleBackPress();
           break;
@@ -213,6 +238,24 @@ export const App: React.FC = () => {
       setIsSettingsOpen(false);
       return;
     }
+
+    // 1. Outside account on Auth / Login Screen
+    // User requested: "انا خارج التطبيق في واجهة الدخول ان ضغط ESC يظهر شاشة سوداء... يجب ان لا يحدث شيء لكن في الاندرويد يتم السؤال للخروج من كل التطبيق"
+    if (currentScreen === 'auth') {
+      const isAndroid = typeof navigator !== 'undefined' && (
+        /Android/i.test(navigator.userAgent) || 
+        Boolean((window as any).Capacitor?.isNativePlatform?.())
+      );
+
+      if (isAndroid) {
+        setExitModalMode('app-exit');
+        setIsExitModalOpen(true);
+      }
+      // On Web, PC, Tizen, etc.: do NOTHING! (Never transition to a black screen!)
+      return;
+    }
+
+    // 2. Inside VOD Player
     if (currentScreen === 'vod-player') {
       PlayerManager.stopAll();
       if (screenHistory.length > 0) {
@@ -224,33 +267,66 @@ export const App: React.FC = () => {
       }
       return;
     }
+
+    // 3. Inside Live TV
     if (currentScreen === 'live') {
       PlayerManager.stopAll();
     }
+
+    // 4. Inside Account on Home Screen
+    // User requested: "وداخل الحساب يجب ان يظهر تريد الخروج من الحساب"
     if (currentScreen === 'home') {
+      setExitModalMode('account-logout');
       setIsExitModalOpen(true);
       return;
     }
+
+    // 5. From other sub-screens (live, vod, series, favorites, admin)
     if (screenHistory.length > 0) {
       const prev = screenHistory[screenHistory.length - 1];
       setScreenHistory(h => h.slice(0, -1));
-      setCurrentScreen(prev);
+      if (prev === 'home' && !account) {
+        setCurrentScreen('auth');
+      } else {
+        setCurrentScreen(prev);
+      }
     } else {
-      setCurrentScreen('home');
+      setCurrentScreen(account ? 'home' : 'auth');
     }
   };
 
-  const handleConfirmExit = () => {
+  const handleConfirmLogout = () => {
+    setIsExitModalOpen(false);
+    handleLogout();
+  };
+
+  const handleConfirmAppExit = () => {
     setIsExitModalOpen(false);
     PlayerManager.killActiveStreams();
-    if (typeof window !== 'undefined' && (window as any).tizen) {
-      try {
-        (window as any).tizen.application.getCurrentApplication().exit();
-      } catch (e) {
-        console.log('[Tizen] Application exit error:', e);
+    if (typeof window !== 'undefined') {
+      if ((window as any).tizen) {
+        try {
+          (window as any).tizen.application.getCurrentApplication().exit();
+          return;
+        } catch (e) {
+          console.log('[Tizen] Application exit error:', e);
+        }
       }
-    } else {
-      handleLogout();
+      if ((window as any).webOS && typeof (window as any).webOS.platformBack === 'function') {
+        try {
+          (window as any).webOS.platformBack();
+          return;
+        } catch {}
+      }
+      if ((window as any).navigator?.app?.exitApp) {
+        try {
+          (window as any).navigator.app.exitApp();
+          return;
+        } catch {}
+      }
+      try {
+        window.close();
+      } catch {}
     }
   };
 
@@ -350,11 +426,13 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* SAMSUNG TV EXIT CONFIRMATION MODAL */}
+      {/* EXIT / LOGOUT CONFIRMATION MODAL */}
       <ExitConfirmModal
         isOpen={isExitModalOpen}
+        mode={exitModalMode}
         onCancel={() => setIsExitModalOpen(false)}
-        onConfirmExit={handleConfirmExit}
+        onConfirmLogout={handleConfirmLogout}
+        onConfirmAppExit={handleConfirmAppExit}
       />
 
       {/* PRIMARY SCREEN ROUTER */}

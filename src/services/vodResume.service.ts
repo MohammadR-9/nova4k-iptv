@@ -22,8 +22,8 @@ export class VodResumeService {
   public static saveResumePoint(id: string | number, currentTimeSec: number, durationSec: number): void {
     if (!id || typeof window === 'undefined' || !window.localStorage) return;
 
-    // Don't save if watched less than 10 seconds
-    if (currentTimeSec < 10) {
+    // Don't save if watched less than 5 seconds
+    if (currentTimeSec < 5) {
       return;
     }
 
@@ -60,7 +60,7 @@ export class VodResumeService {
       const data = localStorage.getItem(`${STORAGE_PREFIX}${id}`);
       if (!data) return null;
       const parsed: ResumePoint = JSON.parse(data);
-      if (parsed && typeof parsed.currentTimeSec === 'number' && parsed.currentTimeSec >= 10) {
+      if (parsed && typeof parsed.currentTimeSec === 'number' && parsed.currentTimeSec >= 5) {
         return parsed;
       }
     } catch (e) {

@@ -50,6 +50,10 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
   const [continueWatchingList, setContinueWatchingList] = useState<{ movie: VodItem; resume: ResumePoint }[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Global search across all 12,699 movies
+  const [masterSearchResults, setMasterSearchResults] = useState<VodItem[] | null>(null);
+  const [isSearchingGlobally, setIsSearchingGlobally] = useState<boolean>(false);
+
   // Sidebar ref
   const activeCategoryRef = useRef<HTMLButtonElement | null>(null);
 
@@ -72,6 +76,9 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
         setCategories(cats);
         const list = await XtreamService.getVodMovies('all');
         setAllMovies(list);
+
+        // Preload complete master catalog in background for instant global search across all 12,699 movies
+        XtreamService.getAllVodMaster().catch(() => {});
 
         // Check resume points for continue watching shelf
         const resumeMap = VodResumeService.getAllResumePoints();
@@ -96,9 +103,48 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
     }, 200);
   }, []);
 
+  // Debounced global search across all 12,699 movies (locates any movie like Momo (2025) instantly)
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setMasterSearchResults(null);
+      setIsSearchingGlobally(false);
+      return;
+    }
+
+    let isCurrent = true;
+    setIsSearchingGlobally(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await XtreamService.searchVodGlobally(q);
+        if (isCurrent) {
+          setMasterSearchResults(res);
+          setIsSearchingGlobally(false);
+        }
+      } catch (e) {
+        if (isCurrent) setIsSearchingGlobally(false);
+      }
+    }, 150);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
+
   const handleSelectCategory = async (catId: string) => {
     if (selectedCatId === catId) return;
     setSelectedCatId(catId);
+    
+    // Check instant cache
+    const cached = XtreamService.getCachedVodMovies(catId);
+    if (cached && cached.length > 0) {
+      setAllMovies(cached);
+      setIsLoading(false);
+      setTimeout(() => spatialNav.setFocus('vod-card-0'), 100);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const filtered = await XtreamService.getVodMovies(catId);
@@ -129,11 +175,14 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
     return categories.filter(c => c.category_name.toLowerCase().includes(q));
   }, [categories, catSearchQuery]);
 
-  // Filter and Sort Movies
+  // Filter and Sort Movies (uses global master search across all 12,699 movies when searching)
   const filteredMovies = useMemo(() => {
-    let result = allMovies.filter(m => {
-      // 1. Text Search
-      if (searchQuery.trim()) {
+    const isSearching = !!searchQuery.trim();
+    const sourcePool = (isSearching && masterSearchResults !== null) ? masterSearchResults : allMovies;
+
+    let result = sourcePool.filter(m => {
+      // 1. Text Search (if master search results are still resolving, filter active pool as quick fallback)
+      if (isSearching && masterSearchResults === null) {
         const q = searchQuery.toLowerCase().trim();
         const matchName = m.name?.toLowerCase().includes(q) || false;
         const matchCast = m.cast?.toLowerCase().includes(q) || false;
@@ -192,7 +241,7 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
     }
 
     return result;
-  }, [allMovies, searchQuery, quickFilter, yearFilter, ratingFilter, qualityFilter, sortBy]);
+  }, [allMovies, masterSearchResults, searchQuery, quickFilter, yearFilter, ratingFilter, qualityFilter, sortBy]);
 
   const currentCategoryName = useMemo(() => {
     if (selectedCatId === 'all') return 'جميع الأفلام السينمائية';
@@ -229,7 +278,7 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
               <div className="flex items-center gap-2">
                 <h1 className="text-base md:text-lg font-black text-white tracking-wide">مكتبة الأفلام (NOVA 4K ULTRA)</h1>
                 <span className="text-[10px] font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2.5 py-0.5 rounded-full font-bold">
-                  {filteredMovies.length} فيلم
+                  {searchQuery.trim() ? `${filteredMovies.length} نتيجة بحث` : `${filteredMovies.length} فيلم`}
                 </span>
               </div>
             </div>
@@ -265,16 +314,20 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
             )}
           </button>
 
-          {/* Movie Search Input */}
-          <div className="relative w-48 md:w-64">
+          {/* Movie Global Search Input */}
+          <div className="relative w-52 md:w-72">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث عن فيلم، ممثل..."
+              placeholder="بحث شامل في كل الأفلام (12,699)..."
               className="w-full h-9 bg-surface-elevated border border-white/10 rounded-xl px-8 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-400"
             />
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
+            {isSearchingGlobally ? (
+              <div className="w-3.5 h-3.5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin absolute right-2.5 top-2.5" />
+            ) : (
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
+            )}
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
@@ -544,13 +597,19 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
             </div>
           )}
 
-          {/* Category Header Bar */}
+          {/* Category / Search Header Bar */}
           <div className="flex items-center justify-between pt-1">
             <h3 className="text-sm font-black text-white flex items-center gap-2">
-              <span className="w-1.5 h-4 rounded-full bg-purple-500 inline-block" />
-              <span>{currentCategoryName}</span>
+              <span className={`w-1.5 h-4 rounded-full ${searchQuery.trim() ? 'bg-cyan-400' : 'bg-purple-500'} inline-block`} />
+              <span>
+                {searchQuery.trim() 
+                  ? (isSearchingGlobally ? 'جاري البحث الشامل في كافة مكتبة الأفلام...' : `نتائج البحث الشامل عن: "${searchQuery}"`)
+                  : currentCategoryName}
+              </span>
             </h3>
-            <span className="text-xs text-slate-500 font-mono font-bold">{filteredMovies.length} فيلم</span>
+            <span className="text-xs text-slate-400 font-mono font-bold">
+              {filteredMovies.length} فيلم {searchQuery.trim() ? '(بحث شامل)' : ''}
+            </span>
           </div>
 
           {/* 3D Posters Grid */}
@@ -561,14 +620,23 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
             </div>
           ) : filteredMovies.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-400 text-center gap-2">
-              <Search className="w-10 h-10 text-slate-600 mb-1" />
-              <p className="text-sm font-bold text-slate-300">لا يوجد فيلم مطابق لبحثك في هذا التصنيف</p>
-              <button 
-                onClick={resetFilters}
-                className="text-xs text-purple-400 hover:underline mt-2 font-bold cursor-pointer"
-              >
-                إعادة ضبط جميع الفلاتر
-              </button>
+              {hasActiveFilters || searchQuery.trim() ? (
+                <>
+                  <Search className="w-10 h-10 text-slate-600 mb-1" />
+                  <p className="text-sm font-bold text-slate-300">لا يوجد فيلم مطابق لبحثك أو الفلاتر المحددة</p>
+                  <button 
+                    onClick={resetFilters}
+                    className="text-xs text-purple-400 hover:underline mt-2 font-bold cursor-pointer"
+                  >
+                    إعادة ضبط جميع الفلاتر
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Film className="w-10 h-10 text-slate-600 mb-1" />
+                  <p className="text-sm font-bold text-slate-300">لا توجد أفلام معروضة في هذه الباقة حالياً</p>
+                </>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5 md:gap-4 pb-12">
@@ -582,12 +650,15 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
                     onClick={() => {
                       setSelectedDetailsMovie(movie);
                     }}
-                    className="tv-focusable relative aspect-[2/3] bg-surface-elevated rounded-2xl overflow-hidden border-2 border-white/10 hover:border-purple-400 cursor-pointer shadow-lg hover:shadow-purple-500/30 group transition-all transform hover:-translate-y-1"
+                    className="tv-focusable relative aspect-[2/3] bg-surface-elevated rounded-2xl overflow-hidden border-2 border-white/10 hover:border-purple-400 cursor-pointer shadow-lg hover:shadow-purple-500/30 group transition-all transform hover:-translate-y-1 bg-slate-900"
                   >
                     <img 
                       src={movie.stream_icon} 
                       alt={movie.name} 
                       loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=600&fit=crop';
+                      }}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
 
@@ -609,6 +680,11 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
 
                     {/* Bottom Info Gradient */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-3 flex flex-col justify-end z-10">
+                      {searchQuery.trim() && movie.category_id && (
+                        <span className="text-[9px] font-bold text-nova-cyan truncate mb-0.5">
+                          {categories.find(c => c.category_id === movie.category_id)?.category_name || ''}
+                        </span>
+                      )}
                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-accent-gold mb-0.5 font-mono">
                         <Star className="w-3 h-3 fill-current" />
                         <span>{movie.rating || '8.2'}</span>

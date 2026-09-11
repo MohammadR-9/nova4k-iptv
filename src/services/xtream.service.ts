@@ -106,16 +106,25 @@ export class XtreamService {
   private static liveChannelsCache: Map<string, LiveChannel[]> = new Map();
   private static vodCategoriesCache: { category_id: string; category_name: string }[] | null = null;
   private static vodMoviesCache: Map<string, VodItem[]> = new Map();
+  private static allVodMaster: VodItem[] | null = null;
+  private static isFetchingVodMaster = false;
+  private static vodMasterWaiters: ((items: VodItem[]) => void)[] = [];
+
   private static seriesCategoriesCache: { category_id: string; category_name: string }[] | null = null;
   private static seriesListCache: Map<string, SeriesItem[]> = new Map();
+  private static allSeriesMaster: SeriesItem[] | null = null;
+  private static isFetchingSeriesMaster = false;
+  private static seriesMasterWaiters: ((items: SeriesItem[]) => void)[] = [];
 
   public static clearCache(): void {
     this.liveCategoriesCache = null;
     this.liveChannelsCache.clear();
     this.vodCategoriesCache = null;
     this.vodMoviesCache.clear();
+    this.allVodMaster = null;
     this.seriesCategoriesCache = null;
     this.seriesListCache.clear();
+    this.allSeriesMaster = null;
   }
 
   /**
@@ -167,11 +176,58 @@ export class XtreamService {
 
   /**
    * Get Live Channels by category with EPG programs.
-   * Instant in-memory caching to eliminate browser/TV freezes completely.
+    * Instant in-memory and persistent caching to eliminate browser/TV freezes completely.
    */
-  public static async getLiveChannels(categoryId: string = 'all'): Promise<LiveChannel[]> {
+  public static getCachedLiveChannels(categoryId: string = 'all'): LiveChannel[] | null {
     if (this.liveChannelsCache.has(categoryId)) {
       return this.liveChannelsCache.get(categoryId)!;
+    }
+    try {
+      const raw = localStorage.getItem(`tizen_live_chs_${categoryId}`);
+      if (raw) {
+        const parsed: LiveChannel[] = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.liveChannelsCache.set(categoryId, parsed);
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  public static prefetchLiveCategories(categoryIds: string[]): void {
+    const account = ActivationService.getSavedAccount();
+    if (!account?.isLiveServer || !account?.serverUrl) return;
+
+    categoryIds.slice(0, 8).forEach((catId, index) => {
+      if (catId === 'all' || catId === 'favorites') return;
+      if (this.liveChannelsCache.has(catId)) return;
+
+      setTimeout(async () => {
+        try {
+          await this.getLiveChannels(catId);
+        } catch {}
+      }, (index + 1) * 500);
+    });
+  }
+
+  public static optimizeImageUrl(url?: string): string {
+    if (!url) return '';
+    let clean = url.trim();
+    if (clean.startsWith('http://image.tmdb.org')) {
+      clean = clean.replace('http://image.tmdb.org', 'https://image.tmdb.org');
+    }
+    if (clean.includes('image.tmdb.org')) {
+      clean = clean.replace('/w600_and_h900_bestv2/', '/w342/');
+      clean = clean.replace('/original/', '/w500/');
+    }
+    return clean;
+  }
+
+  public static async getLiveChannels(categoryId: string = 'all'): Promise<LiveChannel[]> {
+    const cached = this.getCachedLiveChannels(categoryId);
+    if (cached && cached.length > 0) {
+      return cached;
     }
 
     const account = ActivationService.getSavedAccount();
@@ -188,7 +244,7 @@ export class XtreamService {
         }
 
         const target = `${baseUrl}/player_api.php?username=${encodeURIComponent(account.username)}&password=${encodeURIComponent(account.password || '')}&action=get_live_streams&category_id=${encodeURIComponent(targetCatId)}`;
-        const res = await this.fetchWithTimeout(target, {}, 3500);
+        const res = await this.fetchWithTimeout(target, {}, 7000);
         if (res.ok) {
           const remoteStreams = await res.json();
           if (Array.isArray(remoteStreams) && remoteStreams.length > 0) {
@@ -197,7 +253,7 @@ export class XtreamService {
               name: s.name || `Channel ${idx + 1}`,
               stream_type: 'live',
               stream_id: s.stream_id || idx + 1,
-              stream_icon: s.stream_icon || 'https://images.unsplash.com/photo-1593784991095-a205069470b6?w=160&h=160&fit=crop',
+              stream_icon: this.optimizeImageUrl(s.stream_icon) || 'https://images.unsplash.com/photo-1593784991095-a205069470b6?w=160&h=160&fit=crop',
               epg_channel_id: s.epg_channel_id || null,
               category_id: s.category_id || targetCatId,
               added: s.added || '2026-01-01',
@@ -223,6 +279,12 @@ export class XtreamService {
             if (categoryId === 'all') {
               this.liveChannelsCache.set('all', mapped);
             }
+            try {
+              localStorage.setItem(`tizen_live_chs_${targetCatId}`, JSON.stringify(mapped));
+              if (categoryId === 'all') {
+                localStorage.setItem('tizen_live_chs_all', JSON.stringify(mapped));
+              }
+            } catch {}
             return mapped;
           }
         }
@@ -919,9 +981,27 @@ export class XtreamService {
    * Get VOD Movies (fetches real movies from IPTV server or falls back to curated)
    * Prevents 15 MB / 20,000 movies downloading freeze by querying by category!
    */
-  public static async getVodMovies(categoryId: string = 'all'): Promise<VodItem[]> {
+  public static getCachedVodMovies(categoryId: string = 'all'): VodItem[] | null {
     if (this.vodMoviesCache.has(categoryId)) {
       return this.vodMoviesCache.get(categoryId)!;
+    }
+    try {
+      const raw = localStorage.getItem(`tizen_vod_movies_${categoryId}`);
+      if (raw) {
+        const parsed: VodItem[] = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.vodMoviesCache.set(categoryId, parsed);
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  public static async getVodMovies(categoryId: string = 'all'): Promise<VodItem[]> {
+    const cached = this.getCachedVodMovies(categoryId);
+    if (cached && cached.length > 0) {
+      return cached;
     }
 
     const account = ActivationService.getSavedAccount();
@@ -932,51 +1012,28 @@ export class XtreamService {
         if (categoryId === 'all') {
           const cats = await this.getVodCategories();
           const firstReal = cats.find(c => c.category_id !== 'all');
-          targetCatId = firstReal ? firstReal.category_id : '512';
+          targetCatId = firstReal ? firstReal.category_id : '149';
         }
 
         const target = `${baseUrl}/player_api.php?username=${encodeURIComponent(account.username)}&password=${encodeURIComponent(account.password || '')}&action=get_vod_streams&category_id=${encodeURIComponent(targetCatId)}`;
-        const res = await this.fetchWithTimeout(target, {}, 3500);
+        const res = await this.fetchWithTimeout(target, {}, 7000);
         if (res.ok) {
           const remoteStreams = await res.json();
           if (Array.isArray(remoteStreams) && remoteStreams.length > 0) {
-            const mapped: VodItem[] = remoteStreams.map((s: any, idx: number) => {
-              const streamId = parseInt(s.stream_id, 10) || (idx + 1);
-              const containerExt = s.container_extension || 'mp4';
-              const rawRating = parseFloat(s.rating || s.rating_5based || '8.5');
-              const rating = isNaN(rawRating) || rawRating <= 0 ? 8.5 : Math.round(rawRating * 10) / 10;
-              const nameStr = s.name || `Movie ${idx + 1}`;
-              const yearMatch = nameStr.match(/\b(19\d\d|20\d\d)\b/);
-              const year = s.year || (s.release_date ? String(s.release_date).split('-')[0] : (yearMatch ? yearMatch[1] : '2024'));
-              const durationSec = parseInt(s.duration_secs || (s.episode_run_time ? String(parseInt(s.episode_run_time, 10) * 60) : '7200'), 10) || 7200;
-              const hours = Math.floor(durationSec / 3600);
-              const mins = Math.floor((durationSec % 3600) / 60);
-              const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-
-              return {
-                num: idx + 1,
-                name: nameStr,
-                stream_type: 'movie' as const,
-                stream_id: streamId,
-                stream_icon: s.stream_icon || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=600&fit=crop',
-                backdrop: (Array.isArray(s.backdrop_path) && s.backdrop_path[0]) || s.backdrop_path || s.stream_icon,
-                rating,
-                year: String(year),
-                duration: durationStr,
-                durationSec,
-                category_id: String(s.category_id || targetCatId),
-                plot: s.plot || s.description || 'فيلم سينمائي بجودة فائقة 4K من سيرفر IPTV.',
-                director: s.director || undefined,
-                cast: s.cast || undefined,
-                direct_source: `${baseUrl}/movie/${encodeURIComponent(account.username)}/${encodeURIComponent(account.password || '')}/${streamId}.${containerExt}`,
-                container_extension: containerExt
-              };
-            });
+            const mapped: VodItem[] = remoteStreams.map((s: any, idx: number) => 
+              this.mapRawVodItem(s, idx, baseUrl, account.username, account.password, targetCatId)
+            );
 
             this.vodMoviesCache.set(targetCatId, mapped);
             if (categoryId === 'all') {
               this.vodMoviesCache.set('all', mapped);
             }
+            try {
+              localStorage.setItem(`tizen_vod_movies_${targetCatId}`, JSON.stringify(mapped));
+              if (categoryId === 'all') {
+                localStorage.setItem('tizen_vod_movies_all', JSON.stringify(mapped));
+              }
+            } catch {}
             return mapped;
           }
         }
@@ -986,6 +1043,111 @@ export class XtreamService {
     }
 
     return this.getCuratedVodMovies(categoryId);
+  }
+
+  /**
+   * Helper to map raw VOD stream object from Xtream API to typed VodItem
+   */
+  public static mapRawVodItem(
+    s: any, 
+    idx: number, 
+    baseUrl: string, 
+    username: string, 
+    password?: string, 
+    fallbackCatId = ''
+  ): VodItem {
+    const streamId = parseInt(s.stream_id, 10) || (idx + 1);
+    const containerExt = s.container_extension || 'mp4';
+    const rawRating = parseFloat(s.rating || s.rating_5based || '8.5');
+    const rating = isNaN(rawRating) || rawRating <= 0 ? 8.5 : Math.round(rawRating * 10) / 10;
+    const nameStr = s.name || `Movie ${idx + 1}`;
+    const yearMatch = nameStr.match(/\b(19\d\d|20\d\d)\b/);
+    const year = s.year || (s.release_date ? String(s.release_date).split('-')[0] : (yearMatch ? yearMatch[1] : '2024'));
+    const durationSec = parseInt(s.duration_secs || (s.episode_run_time ? String(parseInt(s.episode_run_time, 10) * 60) : '7200'), 10) || 7200;
+    const hours = Math.floor(durationSec / 3600);
+    const mins = Math.floor((durationSec % 3600) / 60);
+    const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+    return {
+      num: idx + 1,
+      name: nameStr,
+      stream_type: 'movie' as const,
+      stream_id: streamId,
+      stream_icon: this.optimizeImageUrl(s.stream_icon) || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=600&fit=crop',
+      backdrop: this.optimizeImageUrl((Array.isArray(s.backdrop_path) && s.backdrop_path[0]) || s.backdrop_path || s.stream_icon),
+      rating,
+      year: String(year),
+      duration: durationStr,
+      durationSec,
+      category_id: String(s.category_id || fallbackCatId),
+      plot: s.plot || s.description || 'فيلم سينمائي بجودة فائقة 4K من سيرفر IPTV.',
+      director: s.director || undefined,
+      cast: s.cast || undefined,
+      direct_source: `${baseUrl}/movie/${encodeURIComponent(username)}/${encodeURIComponent(password || '')}/${streamId}.${containerExt}`,
+      container_extension: containerExt
+    };
+  }
+
+  /**
+   * Pre-fetches and returns the complete master VOD catalog (all 12,600+ movies across all categories).
+   * Loaded in background to power global instant search across the whole server catalog.
+   */
+  public static async getAllVodMaster(): Promise<VodItem[]> {
+    if (this.allVodMaster && this.allVodMaster.length > 0) {
+      return this.allVodMaster;
+    }
+
+    if (this.isFetchingVodMaster) {
+      return new Promise<VodItem[]>((resolve) => {
+        this.vodMasterWaiters.push(resolve);
+      });
+    }
+
+    this.isFetchingVodMaster = true;
+    const account = ActivationService.getSavedAccount();
+    if (account?.isLiveServer && account?.serverUrl && account?.username && account.serverUrl.startsWith('http')) {
+      try {
+        const baseUrl = account.serverUrl.replace(/\/+$/, '');
+        const target = `${baseUrl}/player_api.php?username=${encodeURIComponent(account.username)}&password=${encodeURIComponent(account.password || '')}&action=get_vod_streams`;
+        const res = await this.fetchWithTimeout(target, {}, 12000);
+        if (res.ok) {
+          const remoteStreams = await res.json();
+          if (Array.isArray(remoteStreams) && remoteStreams.length > 0) {
+            const mapped = remoteStreams.map((s: any, idx: number) => 
+              this.mapRawVodItem(s, idx, baseUrl, account.username, account.password)
+            );
+            this.allVodMaster = mapped;
+            this.vodMasterWaiters.forEach(cb => cb(mapped));
+            this.vodMasterWaiters = [];
+            this.isFetchingVodMaster = false;
+            return mapped;
+          }
+        }
+      } catch (e) {
+        console.warn('[XtreamService] Global VOD master fetch error:', e);
+      }
+    }
+
+    this.isFetchingVodMaster = false;
+    const fallback = this.getCuratedVodMovies('all');
+    this.vodMasterWaiters.forEach(cb => cb(fallback));
+    this.vodMasterWaiters = [];
+    return fallback;
+  }
+
+  /**
+   * Global search across all movies in the entire IPTV server library.
+   * Finds any movie (e.g. Momo (2025)) instantly regardless of category!
+   */
+  public static async searchVodGlobally(query: string): Promise<VodItem[]> {
+    const q = query.toLowerCase().trim();
+    if (!q) return [];
+    const master = await this.getAllVodMaster();
+    return master.filter(m => 
+      (m.name && m.name.toLowerCase().includes(q)) ||
+      (m.cast && m.cast.toLowerCase().includes(q)) ||
+      (m.director && m.director.toLowerCase().includes(q))
+    );
   }
 
   /**
@@ -1191,9 +1353,27 @@ export class XtreamService {
    * Get Series List (fetches real series list from IPTV server or falls back to curated)
    * Prevents large JSON download freezes by querying by category!
    */
-  public static async getSeriesList(categoryId: string = 'all'): Promise<SeriesItem[]> {
+  public static getCachedSeriesList(categoryId: string = 'all'): SeriesItem[] | null {
     if (this.seriesListCache.has(categoryId)) {
       return this.seriesListCache.get(categoryId)!;
+    }
+    try {
+      const raw = localStorage.getItem(`tizen_series_list_${categoryId}`);
+      if (raw) {
+        const parsed: SeriesItem[] = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.seriesListCache.set(categoryId, parsed);
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  public static async getSeriesList(categoryId: string = 'all'): Promise<SeriesItem[]> {
+    const cached = this.getCachedSeriesList(categoryId);
+    if (cached && cached.length > 0) {
+      return cached;
     }
 
     const account = ActivationService.getSavedAccount();
@@ -1211,39 +1391,24 @@ export class XtreamService {
 
         const catParam = targetCatId !== 'all' ? `&category_id=${encodeURIComponent(targetCatId)}` : '';
         const target = `${baseUrl}/player_api.php?username=${encodeURIComponent(account.username)}&password=${encodeURIComponent(account.password || '')}&action=get_series${catParam}`;
-        const res = await this.fetchWithTimeout(target, {}, 3500);
+        const res = await this.fetchWithTimeout(target, {}, 7000);
         if (res.ok) {
           const remoteSeries = await res.json();
           if (Array.isArray(remoteSeries) && remoteSeries.length > 0) {
-            const mapped: SeriesItem[] = remoteSeries.map((s: any, idx: number) => {
-              const seriesId = parseInt(s.series_id, 10) || (idx + 1);
-              const rawRating = parseFloat(s.rating || s.rating_5based || '8.8');
-              const rating = isNaN(rawRating) || rawRating <= 0 ? 8.8 : Math.round(rawRating * 10) / 10;
-              const nameStr = s.name || `Series ${idx + 1}`;
-              const yearMatch = nameStr.match(/\b(19\d\d|20\d\d)\b/);
-              const releaseDate = s.releaseDate ? String(s.releaseDate).split('-')[0] : (yearMatch ? yearMatch[1] : '2024');
-
-              return {
-                series_id: seriesId,
-                name: nameStr,
-                cover: s.cover || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=600&fit=crop',
-                backdrop: (Array.isArray(s.backdrop_path) && s.backdrop_path[0]) || s.backdrop_path || s.cover,
-                plot: s.plot || 'مسلسل درامي مميز بحلقات كاملة وجودة 4K من سيرفر IPTV.',
-                cast: s.cast || undefined,
-                director: s.director || undefined,
-                genre: s.genre || 'دراما • إثارة • تشويق',
-                releaseDate: String(releaseDate),
-                rating,
-                category_id: String(s.category_id || targetCatId),
-                seasonsCount: parseInt(s.seasons_count || s.num_seasons || '1', 10) || 1,
-                seasons: []
-              };
-            });
+            const mapped: SeriesItem[] = remoteSeries.map((s: any, idx: number) => 
+              this.mapRawSeriesItem(s, idx, targetCatId)
+            );
 
             this.seriesListCache.set(targetCatId, mapped);
             if (categoryId === 'all') {
               this.seriesListCache.set('all', mapped);
             }
+            try {
+              localStorage.setItem(`tizen_series_list_${targetCatId}`, JSON.stringify(mapped));
+              if (categoryId === 'all') {
+                localStorage.setItem('tizen_series_list_all', JSON.stringify(mapped));
+              }
+            } catch {}
             return mapped;
           }
         }
@@ -1253,6 +1418,95 @@ export class XtreamService {
     }
 
     return this.getCuratedSeries(categoryId);
+  }
+
+  /**
+   * Helper to map raw series item from Xtream API to typed SeriesItem
+   */
+  public static mapRawSeriesItem(s: any, idx: number, fallbackCatId = ''): SeriesItem {
+    const seriesId = parseInt(s.series_id, 10) || (idx + 1);
+    const rawRating = parseFloat(s.rating || s.rating_5based || '8.8');
+    const rating = isNaN(rawRating) || rawRating <= 0 ? 8.8 : Math.round(rawRating * 10) / 10;
+    const nameStr = s.name || `Series ${idx + 1}`;
+    const yearMatch = nameStr.match(/\b(19\d\d|20\d\d)\b/);
+    const releaseDate = s.releaseDate ? String(s.releaseDate).split('-')[0] : (yearMatch ? yearMatch[1] : '2024');
+
+    return {
+      series_id: seriesId,
+      name: nameStr,
+      cover: this.optimizeImageUrl(s.cover) || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=600&fit=crop',
+      backdrop: this.optimizeImageUrl((Array.isArray(s.backdrop_path) && s.backdrop_path[0]) || s.backdrop_path || s.cover),
+      plot: s.plot || 'مسلسل درامي مميز بحلقات كاملة وجودة 4K من سيرفر IPTV.',
+      cast: s.cast || undefined,
+      director: s.director || undefined,
+      genre: s.genre || 'دراما • إثارة • تشويق',
+      releaseDate: String(releaseDate),
+      rating,
+      category_id: String(s.category_id || fallbackCatId),
+      seasonsCount: parseInt(s.seasons_count || s.num_seasons || '1', 10) || 1,
+      seasons: []
+    };
+  }
+
+  /**
+   * Pre-fetches and returns the complete master series catalog (all 10,000+ series across all categories).
+   * Loaded in background to power global instant search across all series.
+   */
+  public static async getAllSeriesMaster(): Promise<SeriesItem[]> {
+    if (this.allSeriesMaster && this.allSeriesMaster.length > 0) {
+      return this.allSeriesMaster;
+    }
+
+    if (this.isFetchingSeriesMaster) {
+      return new Promise<SeriesItem[]>((resolve) => {
+        this.seriesMasterWaiters.push(resolve);
+      });
+    }
+
+    this.isFetchingSeriesMaster = true;
+    const account = ActivationService.getSavedAccount();
+    if (account?.isLiveServer && account?.serverUrl && account?.username && account.serverUrl.startsWith('http')) {
+      try {
+        const baseUrl = account.serverUrl.replace(/\/+$/, '');
+        const target = `${baseUrl}/player_api.php?username=${encodeURIComponent(account.username)}&password=${encodeURIComponent(account.password || '')}&action=get_series`;
+        const res = await this.fetchWithTimeout(target, {}, 12000);
+        if (res.ok) {
+          const remoteSeries = await res.json();
+          if (Array.isArray(remoteSeries) && remoteSeries.length > 0) {
+            const mapped = remoteSeries.map((s: any, idx: number) => 
+              this.mapRawSeriesItem(s, idx)
+            );
+            this.allSeriesMaster = mapped;
+            this.seriesMasterWaiters.forEach(cb => cb(mapped));
+            this.seriesMasterWaiters = [];
+            this.isFetchingSeriesMaster = false;
+            return mapped;
+          }
+        }
+      } catch (e) {
+        console.warn('[XtreamService] Global Series master fetch error:', e);
+      }
+    }
+
+    this.isFetchingSeriesMaster = false;
+    const fallback = this.getCuratedSeries('all');
+    this.seriesMasterWaiters.forEach(cb => cb(fallback));
+    this.seriesMasterWaiters = [];
+    return fallback;
+  }
+
+  /**
+   * Global search across all series in the entire IPTV server library.
+   */
+  public static async searchSeriesGlobally(query: string): Promise<SeriesItem[]> {
+    const q = query.toLowerCase().trim();
+    if (!q) return [];
+    const master = await this.getAllSeriesMaster();
+    return master.filter(s => 
+      (s.name && s.name.toLowerCase().includes(q)) ||
+      (s.cast && s.cast.toLowerCase().includes(q)) ||
+      (s.genre && s.genre.toLowerCase().includes(q))
+    );
   }
 
   /**

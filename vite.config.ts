@@ -43,13 +43,18 @@ function corsProxyPlugin() {
           res.statusCode = response.status;
           const contentType = response.headers.get('content-type') || '';
           if (contentType) res.setHeader('Content-Type', contentType);
+          const isM3u8 = targetUrl.includes('.m3u8') || contentType.includes('mpegurl') || contentType.includes('application/x-mpegURL');
+          if (response.status === 206) {
+            const contentLength = response.headers.get('content-length');
+            if (contentLength) res.setHeader('Content-Length', contentLength);
+          }
           const contentRange = response.headers.get('content-range');
           if (contentRange) res.setHeader('Content-Range', contentRange);
           const acceptRanges = response.headers.get('accept-ranges');
           if (acceptRanges) res.setHeader('Accept-Ranges', acceptRanges);
 
           // If it's an HLS m3u8 playlist, rewrite relative chunk URLs to go through the proxy!
-          if (targetUrl.includes('.m3u8') || contentType.includes('mpegurl') || contentType.includes('application/x-mpegURL')) {
+          if (isM3u8) {
             const text = await response.text();
             const effectiveUrl = response.url || targetUrl;
             const effectiveObj = new URL(effectiveUrl);
@@ -88,6 +93,7 @@ function corsProxyPlugin() {
               return `/api/proxy?url=${encodeURIComponent(fullChunkUrl)}`;
             }).join('\n');
 
+            res.setHeader('Content-Length', Buffer.byteLength(rewritten));
             res.end(rewritten);
             return;
           }

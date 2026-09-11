@@ -54,8 +54,9 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
 
   // Keep latest times in refs for unmount auto-saving
   const currentTimeRef = useRef(0);
-  const durationRef = useRef(0);
+  const durationRef = useRef(item.durationSec || 7200);
   currentTimeRef.current = currentTime;
+  durationRef.current = duration > 0 ? duration : (item.durationSec || 7200);
   // Pending resume: seek to this time on the FIRST onPlaying event
   const pendingResumeRef = useRef<number | null>(null);
   // Debounce: only show spinner after 1.2s of continuous buffering
@@ -244,8 +245,11 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
         },
         onTimeUpdate: (cur, dur) => {
           if (!isMounted) return;
+          currentTimeRef.current = cur;
           setCurrentTime(cur);
-          if (dur > 0 && dur !== durationRef.current) {
+          const effectiveDur = dur > 0 ? dur : (item.durationSec || 7200);
+          durationRef.current = effectiveDur;
+          if (dur > 0 && dur !== duration) {
             setDuration(dur);
           }
         },
@@ -259,7 +263,7 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
 
       // Check saved resume point
       const saved = VodResumeService.getResumePoint(item.id);
-      if (saved && saved.currentTimeSec > 10) {
+      if (saved && saved.currentTimeSec > 5) {
         setSavedResume(saved);
         setShowResumePrompt(true);
         setTimeout(() => {
@@ -287,12 +291,13 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
 
     resetControlsTimer();
 
-    // 6. Periodic auto-save every 5s
+    // 6. Periodic auto-save every 3s
     const saveInterval = setInterval(() => {
-      if (currentTimeRef.current >= 10 && durationRef.current > 0) {
-        VodResumeService.saveResumePoint(item.id, currentTimeRef.current, durationRef.current);
+      if (currentTimeRef.current >= 5) {
+        const dur = durationRef.current > 0 ? durationRef.current : (item.durationSec || 7200);
+        VodResumeService.saveResumePoint(item.id, currentTimeRef.current, dur);
       }
-    }, 5000);
+    }, 3000);
 
     return () => {
       isMounted = false;
@@ -302,8 +307,9 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       if (bufferingDebounceRef.current) clearTimeout(bufferingDebounceRef.current);
       
       // Save progress on exit
-      if (currentTimeRef.current >= 10) {
-        VodResumeService.saveResumePoint(item.id, currentTimeRef.current, durationRef.current);
+      if (currentTimeRef.current >= 5) {
+        const dur = durationRef.current > 0 ? durationRef.current : (item.durationSec || 7200);
+        VodResumeService.saveResumePoint(item.id, currentTimeRef.current, dur);
       }
       player.current.stop();
     };
@@ -320,6 +326,10 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       // Immediately seek and start playback
       try {
         player.current.seek(targetTime);
+        const vid = player.current.getVideoElement();
+        if (vid) {
+          try { vid.currentTime = targetTime; } catch {}
+        }
         player.current.play();
         setIsPlaying(true);
       } catch (err) {
@@ -359,7 +369,7 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
 
       // When resume prompt is shown, navigate within prompt
       if (showResumePrompt) {
-        if (code === TV_KEYS.RETURN || code === TV_KEYS.BACKSPACE || code === TV_KEYS.ESCAPE) {
+        if (code === TV_KEYS.RETURN || code === TV_KEYS.ESCAPE) {
           e.preventDefault();
           handleResumeDecline();
           return;
@@ -389,7 +399,7 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
 
       // If audio or subtitle modals are open
       if (showAudioModal || showSubtitleModal) {
-        if (code === TV_KEYS.RETURN || code === TV_KEYS.BACKSPACE || code === TV_KEYS.ESCAPE) {
+        if (code === TV_KEYS.RETURN || code === TV_KEYS.ESCAPE) {
           e.preventDefault();
           setShowAudioModal(false);
           setShowSubtitleModal(false);
@@ -480,7 +490,6 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
         // Stop / Back
         case TV_KEYS.STOP:
         case TV_KEYS.RETURN:
-        case TV_KEYS.BACKSPACE:
         case TV_KEYS.ESCAPE:
           e.preventDefault();
           handleExit();
