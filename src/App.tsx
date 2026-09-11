@@ -15,9 +15,10 @@ import { VodPlayer } from './components/vod/VodPlayer';
 import { FavoritesScreen } from './components/favorites/FavoritesScreen';
 import { DiagnosticsHud } from './components/diagnostics/DiagnosticsHud';
 import { SettingsModal } from './components/settings/SettingsModal';
-import { MobileBottomNav } from './components/navigation/MobileBottomNav';
 import { ExitConfirmModal } from './components/common/ExitConfirmModal';
 import { AdminPortalScreen } from './components/admin/AdminPortalScreen';
+import { DeviceDetector, DeviceMode } from './utils/device';
+import { MobileApp } from './components/mobile/MobileApp';
 
 import { webOSAdapter } from './utils/webos.adapter';
 
@@ -38,9 +39,23 @@ export const App: React.FC = () => {
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   const [isDevUnlocked, setIsDevUnlocked] = useState(false);
   
-  // Secret color sequence tracker
   const [colorSequence, setColorSequence] = useState<number[]>([]);
   const [lastRemoteKey, setLastRemoteKey] = useState<number | null>(null);
+
+  // Device Mode detection (TV vs Mobile/Tablet)
+  const [deviceMode, setDeviceMode] = useState<DeviceMode>(() => DeviceDetector.getDeviceMode());
+
+  useEffect(() => {
+    const handleDeviceChange = () => {
+      setDeviceMode(DeviceDetector.getDeviceMode());
+    };
+    window.addEventListener('device-mode-changed', handleDeviceChange);
+    window.addEventListener('resize', handleDeviceChange);
+    return () => {
+      window.removeEventListener('device-mode-changed', handleDeviceChange);
+      window.removeEventListener('resize', handleDeviceChange);
+    };
+  }, []);
 
   // Hash listener for direct URL navigation (e.g. http://localhost:5173/#admin)
   useEffect(() => {
@@ -322,7 +337,19 @@ export const App: React.FC = () => {
         />
       )}
 
-      {currentScreen === 'auth' && (
+      {/* 📱 MOBILE / TABLET DEDICATED APP EXPERIENCE */}
+      {deviceMode === 'mobile' && currentScreen !== 'admin' && (
+        <MobileApp
+          onSwitchToTvMode={() => DeviceDetector.setDeviceModeOverride('tv')}
+          onOpenAdminPortal={() => {
+            window.location.hash = '#admin';
+            setCurrentScreen('admin');
+          }}
+        />
+      )}
+
+      {/* 📺 SMART TV DEDICATED APP EXPERIENCE */}
+      {deviceMode === 'tv' && currentScreen === 'auth' && (
         <ActivationLogin 
           onLoginSuccess={handleLoginSuccess}
           onOpenDevPortal={() => {
@@ -336,7 +363,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {currentScreen === 'home' && account && (
+      {deviceMode === 'tv' && currentScreen === 'home' && account && (
         <HomeDashboard
           account={account}
           onNavigate={navigateTo}
@@ -345,7 +372,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {currentScreen === 'live' && (
+      {deviceMode === 'tv' && currentScreen === 'live' && (
         <LiveTvScreen
           onBackToHome={handleBackPress}
           onOpenDiagnostics={() => setIsDiagnosticsOpen(true)}
@@ -353,28 +380,28 @@ export const App: React.FC = () => {
         />
       )}
 
-      {currentScreen === 'vod' && (
+      {deviceMode === 'tv' && currentScreen === 'vod' && (
         <VodScreen
           onBackToHome={handleBackPress}
           onPlayMovie={handlePlayMovie}
         />
       )}
 
-      {currentScreen === 'series' && (
+      {deviceMode === 'tv' && currentScreen === 'series' && (
         <SeriesScreen
           onBackToHome={handleBackPress}
           onPlayEpisode={handlePlayEpisode}
         />
       )}
 
-      {currentScreen === 'favorites' && (
+      {deviceMode === 'tv' && currentScreen === 'favorites' && (
         <FavoritesScreen
           onBackToHome={handleBackPress}
           onPlayMovie={handlePlayMovie}
         />
       )}
 
-      {currentScreen === 'vod-player' && vodPlaybackItem && (
+      {deviceMode === 'tv' && currentScreen === 'vod-player' && vodPlaybackItem && (
         <VodPlayer
           item={vodPlaybackItem}
           onBack={handleBackPress}
@@ -382,13 +409,16 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* MOBILE BOTTOM NAVIGATION BAR */}
-      {account && currentScreen !== 'auth' && (
-        <MobileBottomNav
-          currentScreen={currentScreen}
-          onNavigate={navigateTo}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-        />
+      {/* Floating UI Mode Switcher (visible in TV mode on desktop/emulator) */}
+      {deviceMode === 'tv' && (
+        <button
+          type="button"
+          onClick={() => DeviceDetector.setDeviceModeOverride('mobile')}
+          className="fixed top-3 right-3 z-50 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-[10px] font-bold text-cyan-300 backdrop-blur-md shadow-md active:scale-95 transition-all"
+          title="التبديل إلى واجهة الموبايل"
+        >
+          📱 تجربة واجهة الموبايل
+        </button>
       )}
 
     </main>
