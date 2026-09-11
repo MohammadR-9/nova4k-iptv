@@ -20,11 +20,11 @@ jobs:
     steps:
       # ─── 1. Checkout ────────────────────────────────────────────
       - name: 📥 Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # ─── 2. Node.js ─────────────────────────────────────────────
       - name: ⚙️ Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'npm'
@@ -57,7 +57,7 @@ jobs:
 
       # ─── 5. Android SDK ─────────────────────────────────────────
       - name: 🤖 Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: 📱 Accept SDK licenses & install components
         run: |
@@ -343,7 +343,7 @@ jobs:
       # ─── 8. Upload Artifacts ─────────────────────────────────────
       - name: 📤 Upload Debug APK
         if: ${{ github.event.inputs.build_type != 'release' && success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: NOVA-4K-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
@@ -351,7 +351,7 @@ jobs:
 
       - name: 📤 Upload Release APK
         if: ${{ github.event.inputs.build_type == 'release' && success() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: NOVA-4K-release-apk
           path: android/app/build/outputs/apk/release/app-release-unsigned.apk
