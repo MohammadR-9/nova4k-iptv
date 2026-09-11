@@ -94,7 +94,12 @@ function corsProxyPlugin() {
 
           if (response.body) {
             const { Readable } = await import('node:stream');
-            Readable.fromWeb(response.body as any).pipe(res);
+            const stream = Readable.fromWeb(response.body as any);
+            stream.on('error', () => {});
+            res.on('close', () => {
+              try { stream.destroy(); } catch {}
+            });
+            stream.pipe(res);
           } else {
             const arrayBuffer = await response.arrayBuffer();
             res.end(Buffer.from(arrayBuffer));
