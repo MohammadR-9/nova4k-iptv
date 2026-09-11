@@ -13,8 +13,25 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onNavigate,
   onOpenSettings
 }) => {
-  // Hide bottom nav when in fullscreen video playback
-  if (currentScreen === 'vod-player') {
+  const [isFullscreen, setIsFullscreen] = React.useState(() => {
+    return typeof document !== 'undefined' && document.documentElement.getAttribute('data-fullscreen') === 'true';
+  });
+
+  React.useEffect(() => {
+    const checkFs = () => {
+      setIsFullscreen(document.documentElement.getAttribute('data-fullscreen') === 'true');
+    };
+    const observer = new MutationObserver(checkFs);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-fullscreen'] });
+    window.addEventListener('resize', checkFs);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', checkFs);
+    };
+  }, []);
+
+  // Hide bottom nav when in fullscreen video playback or fullscreen mode
+  if (currentScreen === 'vod-player' || isFullscreen) {
     return null;
   }
 

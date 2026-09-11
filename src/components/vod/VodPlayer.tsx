@@ -558,14 +558,15 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
 
   return (
     <div 
-      className="relative w-screen h-screen bg-black overflow-hidden select-none"
+      data-fullscreen="true"
+      className="fixed inset-0 w-screen h-screen z-[9999] bg-black overflow-hidden select-none video-fill-screen"
       onMouseMove={resetControlsTimer}
       onClick={resetControlsTimer}
     >
       {/* 1. PRIMARY VIDEO DISPLAY SURFACE */}
       <div 
         ref={videoContainerRef} 
-        className="w-full h-full bg-black flex items-center justify-center cursor-none"
+        className="w-full h-full bg-black flex items-center justify-center cursor-none video-fill-screen"
       />
 
       {/* 2. BUFFERING OVERLAY SPINNER */}

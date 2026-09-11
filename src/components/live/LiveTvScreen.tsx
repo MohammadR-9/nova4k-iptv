@@ -575,51 +575,54 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
       {isMobileMode ? (
         <div className="w-full h-full min-h-screen flex flex-col bg-[#07090e] text-white">
           
-          {/* 1. Mobile Header */}
-          <div className="w-full px-3 py-2.5 bg-slate-950/90 border-b border-white/10 flex items-center justify-between shrink-0 z-30">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onBackToHome}
-                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
-                title="العودة للرئيسية"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div>
-                <h1 className="text-xs font-black text-white flex items-center gap-1.5">
-                  <Tv className="w-4 h-4 text-cyan-400" />
-                  <span>البث المباشر (NOVA 4K)</span>
-                </h1>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  {filteredChannels.length} قناة متاحة
-                </span>
+          {/* 1. Mobile Header (Hidden when in fullscreen) */}
+          {!isFullscreen && (
+            <div className="w-full px-3 py-2.5 bg-slate-950/90 border-b border-white/10 flex items-center justify-between shrink-0 z-30">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onBackToHome}
+                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
+                  title="العودة للرئيسية"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div>
+                  <h1 className="text-xs font-black text-white flex items-center gap-1.5">
+                    <Tv className="w-4 h-4 text-cyan-400" />
+                    <span>البث المباشر (NOVA 4K)</span>
+                  </h1>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {filteredChannels.length} قناة متاحة
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setReorderModalOpen(true)}
+                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-cyan-400"
+                  title="إعادة الترتيب"
+                >
+                  <Layers className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenDiagnostics}
+                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-cyan-400"
+                  title="لوحة التشخيص"
+                >
+                  <Settings2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setReorderModalOpen(true)}
-                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-cyan-400"
-                title="إعادة الترتيب"
-              >
-                <Layers className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={onOpenDiagnostics}
-                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-cyan-400"
-                title="لوحة التشخيص"
-              >
-                <Settings2 className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          )}
 
           {/* 2. Top Sticky 16:9 Video Player (Transforms to Fullscreen Landscape Immersive) */}
           <div 
             ref={videoContainerRef}
+            data-fullscreen={isFullscreen ? "true" : undefined}
             onClick={() => {
               if (isFullscreen) {
                 resetMobileOverlayTimer();
@@ -627,9 +630,11 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                 handleEnterMobileFullscreen();
               }
             }}
-            className={`relative w-full aspect-video bg-black z-20 shrink-0 overflow-hidden shadow-2xl border-b border-white/10 ${
-              isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen aspect-auto cursor-pointer' : 'cursor-pointer'
-            }`}
+            className={
+              isFullscreen
+                ? "fixed inset-0 w-screen h-screen z-[9999] bg-black overflow-hidden select-none cursor-pointer video-fill-screen"
+                : "relative w-full aspect-video bg-black z-20 shrink-0 overflow-hidden shadow-2xl border-b border-white/10 cursor-pointer"
+            }
           >
             {/* Ambient Vignette */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none z-10" />
@@ -828,9 +833,11 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
             )}
           </div>
 
-          {/* 3. Horizontal Category Navigation Scroll */}
-          <div className="w-full px-2.5 py-2 bg-slate-900/90 border-b border-white/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0 z-10">
-            <button
+          {/* 3. Horizontal Category Navigation Scroll & Channel List (Hidden when in fullscreen) */}
+          {!isFullscreen && (
+            <>
+              <div className="w-full px-2.5 py-2 bg-slate-900/90 border-b border-white/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0 z-10">
+                <button
               type="button"
               onClick={() => setSelectedCatId('all')}
               className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
@@ -986,6 +993,8 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
               })
             )}
           </div>
+            </>
+          )}
         </div>
       ) : (
 
