@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
-  Tv, Star, Maximize2,
+  Tv, Star, Maximize2, Minimize2,
   Volume2, VolumeX, ShieldCheck, ArrowLeft, Search, X,
-  Layers, Camera, Video, Settings2, Subtitles
+  Layers, Camera, Video, Settings2, Subtitles,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { LiveCategory, LiveChannel } from '../../types/iptv.types';
 import { XtreamService } from '../../services/xtream.service';
@@ -25,6 +26,7 @@ import { AudioSettingsModal } from './AudioSettingsModal';
 import { SubtitleDubbingModal } from './SubtitleDubbingModal';
 import { ChannelReorderModal } from './ChannelReorderModal';
 import { isMobileDevice } from '../../utils/device';
+import { ScreenOrientationManager } from '../../utils/orientation';
 
 interface LiveTvScreenProps {
   onBackToHome: () => void;
@@ -487,6 +489,75 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
     }
   }, [externalTriggerKey, filteredChannels, activeChannel]);
 
+  // Mobile Fullscreen & Orientation Management
+  const [showMobileOverlay, setShowMobileOverlay] = useState<boolean>(true);
+  const mobileOverlayTimeoutRef = useRef<any>(null);
+
+  const resetMobileOverlayTimer = useCallback(() => {
+    setShowMobileOverlay(true);
+    if (mobileOverlayTimeoutRef.current) {
+      clearTimeout(mobileOverlayTimeoutRef.current);
+    }
+    mobileOverlayTimeoutRef.current = setTimeout(() => {
+      setShowMobileOverlay(false);
+    }, 3500);
+  }, []);
+
+  const handleEnterMobileFullscreen = async (channelToPlay?: LiveChannel) => {
+    if (channelToPlay && channelToPlay.stream_id !== activeChannel?.stream_id) {
+      setActiveChannel(channelToPlay);
+    }
+    setIsFullscreen(true);
+    setAspectRatio('fill');
+    player.current.setAspectRatio('fill');
+    await ScreenOrientationManager.enterLandscapeImmersive();
+    resetMobileOverlayTimer();
+  };
+
+  const handleExitMobileFullscreen = async () => {
+    setIsFullscreen(false);
+    if (mobileOverlayTimeoutRef.current) {
+      clearTimeout(mobileOverlayTimeoutRef.current);
+    }
+    await ScreenOrientationManager.exitLandscapeImmersive();
+  };
+
+  const handleNextChannel = () => {
+    if (filteredChannels.length === 0) return;
+    const currentIndex = filteredChannels.findIndex(c => c.stream_id === activeChannel?.stream_id);
+    const nextIndex = (currentIndex + 1) % filteredChannels.length;
+    setActiveChannel(filteredChannels[nextIndex]);
+    resetMobileOverlayTimer();
+  };
+
+  const handlePrevChannel = () => {
+    if (filteredChannels.length === 0) return;
+    const currentIndex = filteredChannels.findIndex(c => c.stream_id === activeChannel?.stream_id);
+    const prevIndex = (currentIndex - 1 + filteredChannels.length) % filteredChannels.length;
+    setActiveChannel(filteredChannels[prevIndex]);
+    resetMobileOverlayTimer();
+  };
+
+  // Intercept back / ESC in fullscreen to return to list rather than exit screen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.keyCode === 10009 || e.keyCode === 27 || e.key === 'Escape') && isFullscreen) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleExitMobileFullscreen();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isFullscreen]);
+
+  // Clean exit orientation on unmount
+  useEffect(() => {
+    return () => {
+      ScreenOrientationManager.exitLandscapeImmersive();
+    };
+  }, []);
+
   return (
     <div className="relative w-full h-full min-h-screen bg-black overflow-hidden select-none">
 
@@ -546,11 +617,18 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
             </div>
           </div>
 
-          {/* 2. Top Sticky 16:9 Video Player */}
+          {/* 2. Top Sticky 16:9 Video Player (Transforms to Fullscreen Landscape Immersive) */}
           <div 
             ref={videoContainerRef}
+            onClick={() => {
+              if (isFullscreen) {
+                resetMobileOverlayTimer();
+              } else {
+                handleEnterMobileFullscreen();
+              }
+            }}
             className={`relative w-full aspect-video bg-black z-20 shrink-0 overflow-hidden shadow-2xl border-b border-white/10 ${
-              isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen aspect-auto' : ''
+              isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen aspect-auto cursor-pointer' : 'cursor-pointer'
             }`}
           >
             {/* Ambient Vignette */}
@@ -577,7 +655,10 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
             {showUnmuteBanner && (
               <button
                 type="button"
-                onClick={handleUnmute}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUnmute();
+                }}
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-400 text-slate-950 font-bold text-xs shadow-xl animate-bounce cursor-pointer"
               >
                 <Volume2 className="w-4 h-4" />
@@ -585,51 +666,166 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
               </button>
             )}
 
-            {/* Video Top Controls */}
-            <div className="absolute top-2 right-2 left-2 flex items-center justify-between pointer-events-none z-20">
-              {activeChannel && (
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/15 max-w-[65%] truncate">
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-                  <span className="text-[10px] font-bold text-white truncate">{activeChannel.name}</span>
-                </div>
-              )}
+            {/* Mobile Fullscreen Immersive OSD Overlay */}
+            {isFullscreen ? (
+              <div 
+                className={`absolute inset-0 z-30 flex flex-col justify-between p-4 transition-opacity duration-300 ${
+                  showMobileOverlay ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+                }`}
+              >
+                {/* Fullscreen Top Bar */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleExitMobileFullscreen();
+                      }}
+                      className="p-2.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white shadow-xl hover:bg-white/20 active:scale-95 transition-all"
+                      title="العودة لقائمة القنوات"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    {activeChannel && (
+                      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20">
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+                        <span className="text-sm font-bold text-white max-w-[220px] truncate">{activeChannel.name}</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+                          {activeChannel.resolution || 'FHD 4K'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
-              <div className="flex items-center gap-1.5 pointer-events-auto">
-                <button
-                  type="button"
-                  onClick={handleCycleAspectRatio}
-                  className="p-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white text-[9px] font-mono px-2"
-                  title="أبعاد الفيديو"
-                >
-                  {aspectRatio.toUpperCase()}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const vid = player.current.getVideoElement();
-                    if (vid) {
-                      vid.muted = !isMuted;
-                      setIsMuted(!isMuted);
-                    }
-                  }}
-                  className="p-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white"
-                  title={isMuted ? 'إلغاء الكتم' : 'كتم الصوت'}
-                >
-                  {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const fs = await FullscreenUtil.toggleFullscreen(videoContainerRef.current);
-                    setIsFullscreen(fs);
-                  }}
-                  className="p-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white"
-                  title="ملء الشاشة"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCycleAspectRatio();
+                        resetMobileOverlayTimer();
+                      }}
+                      className="px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white text-xs font-bold font-mono"
+                      title="أبعاد الفيديو (Fill / Fit / Stretch)"
+                    >
+                      {aspectRatio.toUpperCase()}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const vid = player.current.getVideoElement();
+                        if (vid) {
+                          vid.muted = !isMuted;
+                          setIsMuted(!isMuted);
+                        }
+                        resetMobileOverlayTimer();
+                      }}
+                      className="p-2 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white"
+                      title={isMuted ? 'إلغاء الكتم' : 'كتم الصوت'}
+                    >
+                      {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleExitMobileFullscreen();
+                      }}
+                      className="p-2 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white"
+                      title="تصغير الشاشة"
+                    >
+                      <Minimize2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Left & Right Zapping Arrows */}
+                <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex items-center justify-between pointer-events-none">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevChannel();
+                    }}
+                    className="p-3 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white shadow-2xl active:scale-90 transition-transform pointer-events-auto"
+                    title="القناة السابقة"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextChannel();
+                    }}
+                    className="p-3 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white shadow-2xl active:scale-90 transition-transform pointer-events-auto"
+                    title="القناة التالية"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {/* Bottom Info Pill */}
+                <div className="flex items-center justify-center">
+                  <div className="px-4 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-[11px] text-slate-300 font-bold shadow-lg">
+                    ملء الشاشة التلقائي • انقر في أي مكان لإظهار/إخفاء عناصر التحكم
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Non-fullscreen standard mobile top controls */
+              <div className="absolute top-2 right-2 left-2 flex items-center justify-between pointer-events-none z-20">
+                {activeChannel && (
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/15 max-w-[65%] truncate">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                    <span className="text-[10px] font-bold text-white truncate">{activeChannel.name}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1.5 pointer-events-auto">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCycleAspectRatio();
+                    }}
+                    className="p-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white text-[9px] font-mono px-2"
+                    title="أبعاد الفيديو"
+                  >
+                    {aspectRatio.toUpperCase()}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const vid = player.current.getVideoElement();
+                      if (vid) {
+                        vid.muted = !isMuted;
+                        setIsMuted(!isMuted);
+                      }
+                    }}
+                    className="p-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white"
+                    title={isMuted ? 'إلغاء الكتم' : 'كتم الصوت'}
+                  >
+                    {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEnterMobileFullscreen();
+                    }}
+                    className="p-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white"
+                    title="ملء الشاشة"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 3. Horizontal Category Navigation Scroll */}
@@ -742,9 +938,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                   <div
                     key={ch.stream_id}
                     onClick={() => {
-                      if (activeChannel?.stream_id !== ch.stream_id) {
-                        setActiveChannel(ch);
-                      }
+                      handleEnterMobileFullscreen(ch);
                     }}
                     className={`relative p-2 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                       isActive

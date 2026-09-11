@@ -12,6 +12,8 @@ import { PlayerManager } from '../../player/PlayerManager';
 import { VodResumeService, ResumePoint } from '../../services/vodResume.service';
 import { TV_KEYS } from '../../navigation/keycodes';
 import { spatialNav } from '../../navigation/spatialNav';
+import { isMobileDevice } from '../../utils/device';
+import { ScreenOrientationManager } from '../../utils/orientation';
 
 interface VodPlayerProps {
   item: VodPlaybackItem;
@@ -61,10 +63,23 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
   const pendingResumeRef = useRef<number | null>(null);
   // Debounce: only show spinner after 1.2s of continuous buffering
   const bufferingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Aspect ratio and player engine
-  const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>('fit');
+  // Aspect ratio and player engine (mobile defaults to fill to cover screen edge-to-edge)
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>(isMobileDevice() ? 'fill' : 'fit');
   const [activeEngine, setActiveEngine] = useState<PlayerEngineType>('exoplayer');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Mobile Forced Landscape & Immersive Fullscreen (Hides clock, status bar & fills screen)
+  useEffect(() => {
+    if (isMobileDevice()) {
+      ScreenOrientationManager.enterLandscapeImmersive();
+      player.current.setAspectRatio('fill');
+    }
+    return () => {
+      if (isMobileDevice()) {
+        ScreenOrientationManager.exitLandscapeImmersive();
+      }
+    };
+  }, []);
 
   // Watchdog: guarantee buffering spinner never gets stuck on VOD playback
   useEffect(() => {
@@ -532,6 +547,9 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       VodResumeService.saveResumePoint(item.id, currentTimeRef.current, durationRef.current);
     }
     player.current.stop();
+    if (isMobileDevice()) {
+      ScreenOrientationManager.exitLandscapeImmersive();
+    }
     onBack();
   };
 
