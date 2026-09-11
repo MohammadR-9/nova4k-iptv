@@ -816,9 +816,9 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                 </div>
 
                 {/* Bottom Info Pill */}
-                <div className="flex items-center justify-center">
-                  <div className="px-4 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-[11px] text-slate-300 font-bold shadow-lg">
-                    ملء الشاشة التلقائي • انقر في أي مكان لإظهار/إخفاء عناصر التحكم
+                <div className="flex items-center justify-center mb-1">
+                  <div className="px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-[10px] text-slate-300 font-bold shadow-lg">
+                    ملء الشاشة • انقر لإظهار أو إخفاء عناصر التحكم
                   </div>
                 </div>
               </div>

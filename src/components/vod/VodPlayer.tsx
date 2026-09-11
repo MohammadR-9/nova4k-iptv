@@ -232,14 +232,6 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
           setIsPlaying(true);
           setAudioTracks(player.current.getAudioTracks());
           setSubtitleTracks(player.current.getSubtitleTracks());
-          // Execute deferred resume seek if not yet at target
-          if (pendingResumeRef.current !== null) {
-            const t = pendingResumeRef.current;
-            const vid = player.current.getVideoElement();
-            if (!vid || Math.abs(vid.currentTime - t) > 2.0) {
-              player.current.seek(t);
-            }
-          }
         },
         onBuffering: (buffering) => {
           if (!isMounted) return;
@@ -263,13 +255,13 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
         onTimeUpdate: (cur, dur) => {
           if (!isMounted) return;
 
-          // Guard: If we are in the middle of resuming, ignore premature timeupdates before seek finishes
+          // Guard: If we are in the middle of resuming, ignore premature 0s timeupdates before seek finishes
           if (pendingResumeRef.current !== null) {
-            if (cur < pendingResumeRef.current - 2.5) {
-              // Video is still starting up, suppress this timeupdate to preserve UI and resume point
+            if (cur < Math.max(1, pendingResumeRef.current - 15.0)) {
+              // Video is still loading seeked range, suppress this timeupdate to preserve UI
               return;
             }
-            // Successfully reached the resume target!
+            // Successfully reached the resume target range!
             pendingResumeRef.current = null;
           }
 
@@ -290,7 +282,8 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       });
 
       // Check saved resume point
-      const saved = VodResumeService.getResumePoint(item.id);
+      const resumeId = item.id || item.streamUrl;
+      const saved = VodResumeService.getResumePoint(resumeId);
       if (saved && saved.currentTimeSec > 5) {
         setSavedResume(saved);
         setShowResumePrompt(true);
@@ -327,7 +320,8 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       }
       if (currentTimeRef.current >= 5) {
         const dur = durationRef.current > 0 ? durationRef.current : (item.durationSec || 7200);
-        VodResumeService.saveResumePoint(item.id, currentTimeRef.current, dur);
+        const resumeId = item.id || item.streamUrl;
+        VodResumeService.saveResumePoint(resumeId, currentTimeRef.current, dur);
       }
     }, 3000);
 
@@ -341,7 +335,8 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       // Save progress on exit (only if not waiting for resume seek)
       if (pendingResumeRef.current === null && currentTimeRef.current >= 5) {
         const dur = durationRef.current > 0 ? durationRef.current : (item.durationSec || 7200);
-        VodResumeService.saveResumePoint(item.id, currentTimeRef.current, dur);
+        const resumeId = item.id || item.streamUrl;
+        VodResumeService.saveResumePoint(resumeId, currentTimeRef.current, dur);
       }
       player.current.stop();
     };
@@ -356,9 +351,15 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       currentTimeRef.current = targetTime;
       setIsBuffering(true);
 
+      // Auto-clear pendingResumeRef after 3.5s safety timeout
+      setTimeout(() => {
+        if (pendingResumeRef.current !== null) {
+          pendingResumeRef.current = null;
+        }
+      }, 3500);
+
       const streamType: 'HLS' | 'MP4' = isHlsStream(item.streamUrl) ? 'HLS' : 'MP4';
       player.current.loadStream(item.streamUrl, streamType, targetTime).then(() => {
-        player.current.seek(targetTime);
         player.current.play();
         setIsPlaying(true);
         setAudioTracks(player.current.getAudioTracks());
@@ -379,7 +380,8 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
 
   const handleResumeDecline = () => {
     // Clear resume point and play from beginning
-    VodResumeService.clearResumePoint(item.id);
+    const resumeId = item.id || item.streamUrl;
+    VodResumeService.clearResumePoint(resumeId);
     pendingResumeRef.current = null;
     setCurrentTime(0);
     currentTimeRef.current = 0;
@@ -586,8 +588,9 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
 
   // 10. Exit player cleanly
   const handleExit = () => {
-    if (pendingResumeRef.current === null && currentTimeRef.current >= 10) {
-      VodResumeService.saveResumePoint(item.id, currentTimeRef.current, durationRef.current);
+    const resumeId = item.id || item.streamUrl;
+    if (pendingResumeRef.current === null && currentTimeRef.current >= 5) {
+      VodResumeService.saveResumePoint(resumeId, currentTimeRef.current, durationRef.current);
     }
     player.current.stop();
     if (isMobileDevice()) {
@@ -832,7 +835,7 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
         )}
 
         {/* BOTTOM TIMELINE & CONTROL BAR */}
-        <div className="w-full flex flex-col gap-2 sm:gap-4 pointer-events-auto bg-gradient-to-t from-black/95 via-black/75 to-transparent p-2.5 sm:p-4 md:p-6 rounded-2xl md:rounded-3xl border border-white/10 backdrop-blur-md shadow-2xl">
+        <div className="w-full max-w-5xl mx-auto flex flex-col gap-1.5 sm:gap-3 pointer-events-auto bg-gradient-to-t from-black/95 via-black/85 to-transparent p-2 sm:p-3.5 md:p-5 rounded-2xl md:rounded-3xl border border-white/10 backdrop-blur-md shadow-2xl">
           
           {/* TIMELINE SEEK BAR */}
           <div className="w-full flex flex-col gap-1.5 sm:gap-2">

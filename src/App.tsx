@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserAccount, ScreenType, VodPlaybackItem, VodItem, SeriesItem, SeriesEpisode } from './types/iptv.types';
 import { ActivationService } from './services/activation.service';
 import { PlayerManager } from './player/PlayerManager';
@@ -220,7 +220,15 @@ export const App: React.FC = () => {
     }
   };
 
+  const lastBackPressTimeRef = useRef(0);
+
   const handleBackPress = () => {
+    const now = Date.now();
+    if (now - lastBackPressTimeRef.current < 400) {
+      return;
+    }
+    lastBackPressTimeRef.current = now;
+
     if (isExitModalOpen) {
       setIsExitModalOpen(false);
       return;

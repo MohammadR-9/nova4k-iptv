@@ -334,10 +334,6 @@ jobs:
                           webView.evaluateJavascript(
                               "(function() { " +
                               "  window.dispatchEvent(new CustomEvent('android-back-button')); " +
-                              "  var evt = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }); " +
-                              "  try { Object.defineProperty(evt, 'keyCode', { get: function() { return 27; } }); } catch(e){} " +
-                              "  try { Object.defineProperty(evt, 'which', { get: function() { return 27; } }); } catch(e){} " +
-                              "  window.dispatchEvent(evt); " +
                               "})();",
                               null
                           );

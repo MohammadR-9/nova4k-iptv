@@ -92,19 +92,22 @@ export class HlsProEngine implements ITvPlayerEngine {
 
     const current = this.videoElement.currentTime;
 
-    // If current time is already within tolerance of target, mark confirmed!
-    if (Math.abs(current - target) <= 1.5) {
+    // In MPEG-4/H.264/HEVC streams, keyframes can be up to 10-15s apart.
+    // If current time is already within GOP tolerance of target, mark confirmed!
+    if (Math.abs(current - target) <= 15.0 && current > 0) {
       this.isSeekConfirmed = true;
       this.pendingSeekTime = null;
       this.clearSeekWatchdog();
       return;
     }
 
-    // Direct seek on HTML5 video element
-    try {
-      this.videoElement.currentTime = target;
-    } catch (err) {
-      console.warn('[HlsProEngine] applyPendingSeek error:', err);
+    // Direct seek on HTML5 video element (only if not already seeking)
+    if (!this.videoElement.seeking) {
+      try {
+        this.videoElement.currentTime = target;
+      } catch (err) {
+        console.warn('[HlsProEngine] applyPendingSeek error:', err);
+      }
     }
 
     if (this.hls && this.currentStreamType === 'HLS') {
@@ -120,6 +123,7 @@ export class HlsProEngine implements ITvPlayerEngine {
     this.isSeekConfirmed = false;
     this.seekAttemptCount = 0;
 
+    // Gentle 1000ms check interval to avoid cancelling Range requests on mobile/slow networks
     this.seekWatchdogTimer = setInterval(() => {
       if (!this.videoElement || this.pendingSeekTime === null) {
         this.clearSeekWatchdog();
@@ -129,8 +133,8 @@ export class HlsProEngine implements ITvPlayerEngine {
       this.seekAttemptCount++;
       const cur = this.videoElement.currentTime;
 
-      // Check if seek is satisfied
-      if (Math.abs(cur - this.pendingSeekTime) <= 2.0 && cur > 0) {
+      // Check if seek is satisfied (within realistic GOP keyframe range)
+      if (cur >= Math.max(1, this.pendingSeekTime - 15.0)) {
         this.isSeekConfirmed = true;
         this.pendingSeekTime = null;
         this.clearSeekWatchdog();
@@ -138,7 +142,7 @@ export class HlsProEngine implements ITvPlayerEngine {
         return;
       }
 
-      // If video metadata is ready, retry applying seek if not currently seeking
+      // If video metadata is ready and not seeking, apply seek once
       if (this.videoElement.readyState >= 1 && !this.videoElement.seeking) {
         try {
           this.videoElement.currentTime = this.pendingSeekTime;
@@ -150,14 +154,14 @@ export class HlsProEngine implements ITvPlayerEngine {
         this.videoElement.play().catch(() => {});
       }
 
-      // Timeout after 20 attempts (~5 seconds)
-      if (this.seekAttemptCount >= 20) {
-        console.warn(`[HlsProEngine] Seek watchdog finished after ${this.seekAttemptCount} attempts. Current: ${cur}`);
+      // Safety timeout after ~4 seconds
+      if (this.seekAttemptCount >= 4) {
         this.isSeekConfirmed = true;
         this.pendingSeekTime = null;
         this.clearSeekWatchdog();
+        this.events.onBuffering?.(false);
       }
-    }, 250);
+    }, 1000);
   }
 
   private clearSeekWatchdog(): void {
@@ -212,11 +216,15 @@ export class HlsProEngine implements ITvPlayerEngine {
     });
 
     this.videoElement.addEventListener('seeked', () => {
-      if (this.videoElement && this.pendingSeekTime !== null) {
-        if (Math.abs(this.videoElement.currentTime - this.pendingSeekTime) <= 2.5) {
-          this.isSeekConfirmed = true;
-          this.pendingSeekTime = null;
-          this.clearSeekWatchdog();
+      if (this.videoElement) {
+        const cur = this.videoElement.currentTime;
+        if (this.pendingSeekTime !== null) {
+          // If we reached close to target, seek is confirmed!
+          if (cur >= Math.max(1, this.pendingSeekTime - 15.0)) {
+            this.isSeekConfirmed = true;
+            this.pendingSeekTime = null;
+            this.clearSeekWatchdog();
+          }
         }
       }
       this.events.onBuffering?.(false);
@@ -228,7 +236,7 @@ export class HlsProEngine implements ITvPlayerEngine {
 
       // CRITICAL: Block bogus early timeupdate events from overwriting resume position!
       if (this.pendingSeekTime !== null && !this.isSeekConfirmed) {
-        if (cur < this.pendingSeekTime - 2.5) {
+        if (cur < Math.max(1, this.pendingSeekTime - 15.0)) {
           // Still at initial seconds before seek took effect, suppress this timeupdate!
           return;
         } else {
@@ -454,7 +462,14 @@ export class HlsProEngine implements ITvPlayerEngine {
         if (sessionId !== this.currentLoadSessionId) return;
         if (this.bufferingSafetyTimeout) clearTimeout(this.bufferingSafetyTimeout);
 
-        this.videoElement!.src = streamUrl;
+        // Media Fragments URI (W3C standard):
+        // Appending #t=seconds tells the browser/WebView to request Range bytes directly at target time!
+        let directUrl = streamUrl;
+        if (startPosition > 0 && !directUrl.includes('#')) {
+          directUrl = `${streamUrl}#t=${Math.floor(startPosition)}`;
+        }
+
+        this.videoElement!.src = directUrl;
         this.videoElement!.load();
 
         if (startPosition > 0) {
