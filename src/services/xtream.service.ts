@@ -9,11 +9,11 @@ export class XtreamService {
    * On Samsung Tizen TV (tizen hardware), fetch directly since config.xml has full access privileges.
    */
   private static getProxiedUrl(targetUrl: string): string {
-    // Only use /api/proxy in local Vite dev server on desktop browser (localhost:5173)
-    // On Android APK, Capacitor, Tizen, webOS, and GitHub Pages, fetch directly!
+    // When running Vite dev server (port 5173 on localhost, 127.0.0.1, or LAN IP 192.168.x.x), use /api/proxy
+    // On Android APK, Capacitor, Tizen TV, and GitHub Pages (port is empty), fetch directly!
     if (typeof window !== 'undefined') {
-      const isLocalDev = window.location.port === '5173' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-      if (isLocalDev && targetUrl.startsWith('http')) {
+      const isViteDevServer = window.location.port === '5173';
+      if (isViteDevServer && targetUrl.startsWith('http')) {
         return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
       }
     }
@@ -235,7 +235,7 @@ export class XtreamService {
     return curated;
   }
 
-  private static getCuratedLiveChannels(categoryId: string = 'all'): LiveChannel[] {
+  public static getCuratedLiveChannels(categoryId: string = 'all'): LiveChannel[] {
     const curatedChannels: LiveChannel[] = [
       // ================= SPORTS =================
       {

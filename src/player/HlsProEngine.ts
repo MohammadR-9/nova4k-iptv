@@ -83,11 +83,12 @@ export class HlsProEngine implements ITvPlayerEngine {
     let video = containerElement.querySelector('video') as HTMLVideoElement;
     if (!video) {
       video = document.createElement('video');
-      video.className = 'w-full h-full object-contain bg-black transition-transform duration-200';
+      video.className = 'absolute inset-0 w-full h-full object-contain bg-black transition-transform duration-200';
       video.autoplay = true;
       video.playsInline = true;
-      video.crossOrigin = 'anonymous';
       containerElement.appendChild(video);
+    } else {
+      video.className = 'absolute inset-0 w-full h-full object-contain bg-black transition-transform duration-200';
     }
     this.videoElement = video;
 
@@ -265,6 +266,14 @@ export class HlsProEngine implements ITvPlayerEngine {
           mpegPlayer.on(mpegts.Events.ERROR, (errType: any, errDetail: any) => {
             console.warn('[HlsProEngine] mpegts player error:', errType, errDetail);
             this.events.onBuffering?.(false);
+            if (this.videoElement && !this.videoElement.src) {
+              try {
+                this.mpegtsPlayer?.destroy();
+              } catch {}
+              this.mpegtsPlayer = null;
+              this.videoElement.src = streamUrl;
+              this.videoElement.play().catch(() => {});
+            }
           });
 
           mpegPlayer.on(mpegts.Events.MEDIA_INFO, (mediaInfo: any) => {
@@ -395,7 +404,6 @@ export class HlsProEngine implements ITvPlayerEngine {
 
   // Build Engine-specific configurations with Look4k Fast Boot optimization
   private buildHlsConfig(): Partial<HlsConfig> {
-    const isExo = this.engineType === 'exoplayer';
     const isVlc = this.engineType === 'vlc';
     const isMpv = this.engineType === 'mpv-cinema';
 
@@ -417,8 +425,8 @@ export class HlsProEngine implements ITvPlayerEngine {
     }
 
     return {
-      enableWorker: true,
-      lowLatencyMode: isExo || this.bufferProfile === 'fast-zapping',
+      enableWorker: false,
+      lowLatencyMode: false,
       backBufferLength: isVlc ? 30 : 10,
       maxBufferLength,
       maxMaxBufferLength,

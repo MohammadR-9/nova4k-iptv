@@ -17,8 +17,8 @@ import { DiagnosticsHud } from './components/diagnostics/DiagnosticsHud';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { ExitConfirmModal } from './components/common/ExitConfirmModal';
 import { AdminPortalScreen } from './components/admin/AdminPortalScreen';
-import { DeviceDetector, DeviceMode } from './utils/device';
-import { MobileApp } from './components/mobile/MobileApp';
+import { MobileBottomNav } from './components/navigation/MobileBottomNav';
+import { Smartphone, Monitor } from 'lucide-react';
 
 import { webOSAdapter } from './utils/webos.adapter';
 
@@ -42,20 +42,28 @@ export const App: React.FC = () => {
   const [colorSequence, setColorSequence] = useState<number[]>([]);
   const [lastRemoteKey, setLastRemoteKey] = useState<number | null>(null);
 
-  // Device Mode detection (TV vs Mobile/Tablet)
-  const [deviceMode, setDeviceMode] = useState<DeviceMode>(() => DeviceDetector.getDeviceMode());
+  // Mobile Simulator on PC mode
+  const [isMobileSim, setIsMobileSim] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('nova_mobile_sim') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleMobileSim = () => {
+    setIsMobileSim(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('nova_mobile_sim', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   useEffect(() => {
-    const handleDeviceChange = () => {
-      setDeviceMode(DeviceDetector.getDeviceMode());
-    };
-    window.addEventListener('device-mode-changed', handleDeviceChange);
-    window.addEventListener('resize', handleDeviceChange);
-    return () => {
-      window.removeEventListener('device-mode-changed', handleDeviceChange);
-      window.removeEventListener('resize', handleDeviceChange);
-    };
-  }, []);
+    document.documentElement.setAttribute('data-device', isMobileSim ? 'mobile' : 'tv');
+  }, [isMobileSim]);
 
   // Hash listener for direct URL navigation (e.g. http://localhost:5173/#admin)
   useEffect(() => {
@@ -295,7 +303,12 @@ export const App: React.FC = () => {
   };
 
   return (
-    <main className="relative w-screen h-screen overflow-hidden bg-oled select-none">
+    <div className={`w-full h-full min-h-screen ${isMobileSim ? 'bg-[#030712] flex flex-col items-center justify-center p-4' : ''}`}>
+      <main className={`relative overflow-hidden bg-oled select-none transition-all duration-300 ${
+        isMobileSim
+          ? 'w-[390px] h-[844px] max-h-[94vh] rounded-[48px] border-[10px] border-slate-800 shadow-[0_0_60px_rgba(0,242,254,0.35)] flex flex-col'
+          : 'w-screen h-screen'
+      }`}>
       
       {/* VIRTUAL REMOTE SIMULATOR FOR PC & BROWSER PREVIEW */}
       <RemoteSimulator 
@@ -337,19 +350,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* 📱 MOBILE / TABLET DEDICATED APP EXPERIENCE */}
-      {deviceMode === 'mobile' && currentScreen !== 'admin' && (
-        <MobileApp
-          onSwitchToTvMode={() => DeviceDetector.setDeviceModeOverride('tv')}
-          onOpenAdminPortal={() => {
-            window.location.hash = '#admin';
-            setCurrentScreen('admin');
-          }}
-        />
-      )}
-
-      {/* 📺 SMART TV DEDICATED APP EXPERIENCE */}
-      {deviceMode === 'tv' && currentScreen === 'auth' && (
+      {currentScreen === 'auth' && (
         <ActivationLogin 
           onLoginSuccess={handleLoginSuccess}
           onOpenDevPortal={() => {
@@ -363,7 +364,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {deviceMode === 'tv' && currentScreen === 'home' && account && (
+      {currentScreen === 'home' && account && (
         <HomeDashboard
           account={account}
           onNavigate={navigateTo}
@@ -372,7 +373,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {deviceMode === 'tv' && currentScreen === 'live' && (
+      {currentScreen === 'live' && (
         <LiveTvScreen
           onBackToHome={handleBackPress}
           onOpenDiagnostics={() => setIsDiagnosticsOpen(true)}
@@ -380,28 +381,28 @@ export const App: React.FC = () => {
         />
       )}
 
-      {deviceMode === 'tv' && currentScreen === 'vod' && (
+      {currentScreen === 'vod' && (
         <VodScreen
           onBackToHome={handleBackPress}
           onPlayMovie={handlePlayMovie}
         />
       )}
 
-      {deviceMode === 'tv' && currentScreen === 'series' && (
+      {currentScreen === 'series' && (
         <SeriesScreen
           onBackToHome={handleBackPress}
           onPlayEpisode={handlePlayEpisode}
         />
       )}
 
-      {deviceMode === 'tv' && currentScreen === 'favorites' && (
+      {currentScreen === 'favorites' && (
         <FavoritesScreen
           onBackToHome={handleBackPress}
           onPlayMovie={handlePlayMovie}
         />
       )}
 
-      {deviceMode === 'tv' && currentScreen === 'vod-player' && vodPlaybackItem && (
+      {currentScreen === 'vod-player' && vodPlaybackItem && (
         <VodPlayer
           item={vodPlaybackItem}
           onBack={handleBackPress}
@@ -409,18 +410,36 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Floating UI Mode Switcher (visible in TV mode on desktop/emulator) */}
-      {deviceMode === 'tv' && (
-        <button
-          type="button"
-          onClick={() => DeviceDetector.setDeviceModeOverride('mobile')}
-          className="fixed top-3 right-3 z-50 px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-[10px] font-bold text-cyan-300 backdrop-blur-md shadow-md active:scale-95 transition-all"
-          title="التبديل إلى واجهة الموبايل"
-        >
-          📱 تجربة واجهة الموبايل
-        </button>
+      {/* MOBILE BOTTOM NAVIGATION BAR (Visible on mobile screens when logged in) */}
+      {account && currentScreen !== 'auth' && currentScreen !== 'vod-player' && (
+        <MobileBottomNav
+          currentScreen={currentScreen}
+          onNavigate={navigateTo}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
       )}
 
-    </main>
+      {/* Floating PC Mobile Simulator Toggle Button */}
+      <button
+        type="button"
+        onClick={toggleMobileSim}
+        className="fixed top-3 left-3 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-xs font-bold text-cyan-300 backdrop-blur-xl shadow-lg active:scale-95 transition-all cursor-pointer"
+        title="التبديل بين شاشة التلفاز ومحاكي الهاتف"
+      >
+        {isMobileSim ? (
+          <>
+            <Monitor className="w-3.5 h-3.5 text-cyan-400" />
+            <span>عرض التلفاز (TV View)</span>
+          </>
+        ) : (
+          <>
+            <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+            <span>محاكي الموبايل (Phone View)</span>
+          </>
+        )}
+      </button>
+
+      </main>
+    </div>
   );
 };

@@ -238,9 +238,8 @@ html[data-device="mobile"] .tv-focused-subtle {
 /* ── Player: full width on mobile ────────────────────────── */
 @media (max-width: 900px) {
   html[data-device="mobile"] video {
-    width: 100vw !important;
-    height: 56.25vw !important;
-    max-height: 70vh;
+    width: 100% !important;
+    height: 100% !important;
     object-fit: contain;
   }
 
