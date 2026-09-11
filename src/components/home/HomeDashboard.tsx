@@ -107,12 +107,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
          ========================================================================= */}
       <aside className="hidden md:flex relative z-20 w-20 md:w-24 h-full bg-slate-950/80 backdrop-blur-2xl border-l border-white/10 flex-col items-center justify-between py-6 shrink-0 shadow-2xl">
         
-        {/* Top Logo Icon */}
+        {/* Top Logo Insignia Badge (Brand Emblem, purely decorative) */}
         <div 
-          data-nav-id="dock-logo"
-          onClick={() => onNavigate('home')}
-          className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-400 via-purple-600 to-nova-cyan p-0.5 shadow-nova-glow cursor-pointer hover:scale-105 transition-transform"
+          className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-400 via-purple-600 to-nova-cyan p-0.5 shadow-nova-glow select-none pointer-events-none"
           title="NOVA 4K ULTRA"
+          aria-hidden="true"
         >
           <div className="w-full h-full bg-slate-950/90 rounded-[14px] flex items-center justify-center">
             <Sparkles className="w-6 h-6 text-nova-cyan animate-pulse" />
