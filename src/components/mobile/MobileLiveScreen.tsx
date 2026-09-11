@@ -98,7 +98,7 @@ export const MobileLiveScreen: React.FC<MobileLiveScreenProps> = () => {
   useEffect(() => {
     if (!activeChannel) return;
     setIsBuffering(true);
-    const streamType = activeChannel.direct_source.endsWith('.ts') ? 'MPEG-TS' : 'HLS';
+    const streamType = activeChannel.direct_source.includes('.m3u8') ? 'HLS' : activeChannel.direct_source.includes('.ts') ? 'MPEG-TS' : 'HLS';
     player.current.loadStream(activeChannel.direct_source, streamType);
   }, [activeChannel]);
 

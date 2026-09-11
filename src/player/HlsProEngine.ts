@@ -182,25 +182,25 @@ export class HlsProEngine implements ITvPlayerEngine {
       }, 2200);
 
       // In browser mode, route external HTTP/HTTPS IPTV streams through the Vite CORS proxy ONLY if needed.
-      // NOTE: look.5g.in and .ts live MPEG-TS streams ALREADY support Access-Control-Allow-Origin: *
-      // Proxying live infinite TS streams through single-threaded Node.js causes socket hangs and proxy timeouts!
+      // On Samsung Tizen Smart TVs, fetch directly using TV native security exemptions.
       let streamUrl = url;
       if (typeof window !== 'undefined' && !((window as any).tizen) && url.startsWith('http')) {
-        const isDirect = url.includes('.ts') ||
-                         url.includes('5g.in') ||
-                         url.includes('look.5g.in') ||
-                         url.includes('test-streams.mux.dev') ||
-                         url.includes('akamaized.net') ||
-                         url.includes('apple.com') ||
-                         url.includes('cloudfront.net') ||
-                         url.includes('fastly.net');
-        if (!isDirect) {
+        const isDirectCdn = url.includes('test-streams.mux.dev') ||
+                            url.includes('akamaized.net') ||
+                            url.includes('apple.com') ||
+                            url.includes('cloudfront.net') ||
+                            url.includes('fastly.net') ||
+                            url.includes('mozilla.net');
+        if (!isDirectCdn) {
           streamUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
         }
       }
 
-      // MPEG-TS live stream via mpegts.js (Pure MSE Demuxer)
-      if ((url.includes('.ts') || streamUrl.includes('.ts') || streamType === 'MPEG-TS') && mpegts.isSupported()) {
+      // MPEG-TS live stream via mpegts.js (Pure MSE Demuxer) - Only for explicit .ts without .m3u8
+      const isExplicitTs = (url.endsWith('.ts') || streamUrl.endsWith('.ts') || streamType === 'MPEG-TS') && 
+                           !url.includes('.m3u8') && 
+                           !streamUrl.includes('.m3u8');
+      if (isExplicitTs && mpegts.isSupported()) {
         if (sessionId !== this.currentLoadSessionId) return;
         if (this.bufferingSafetyTimeout) clearTimeout(this.bufferingSafetyTimeout);
 
@@ -266,6 +266,12 @@ export class HlsProEngine implements ITvPlayerEngine {
           mpegPlayer.on(mpegts.Events.ERROR, (errType: any, errDetail: any) => {
             console.warn('[HlsProEngine] mpegts player error:', errType, errDetail);
             this.events.onBuffering?.(false);
+            if (url.includes('.ts') && !this.isRecovering) {
+              const fallbackM3u8 = url.replace(/\.ts(\?|$)/, '.m3u8$1');
+              console.log('[HlsProEngine] mpegts error, attempting .m3u8 fallback:', fallbackM3u8);
+              this.loadStream(fallbackM3u8, 'HLS').catch(() => {});
+              return;
+            }
             if (this.videoElement && !this.videoElement.src) {
               try {
                 this.mpegtsPlayer?.destroy();
@@ -393,7 +399,13 @@ export class HlsProEngine implements ITvPlayerEngine {
               this.hls?.recoverMediaError();
               break;
             default:
-              console.warn('[HlsProEngine] Fatal error, reloading stream with anti-freeze settings...');
+              console.warn('[HlsProEngine] Fatal error, checking failover options...');
+              if (url.includes('.m3u8') && !this.isRecovering) {
+                const fallbackTs = url.replace(/\.m3u8(\?|$)/, '.ts$1');
+                console.log('[HlsProEngine] Hls.js fatal error, attempting .ts fallback:', fallbackTs);
+                this.loadStream(fallbackTs, 'MPEG-TS').catch(() => {});
+                return;
+              }
               this.handleStreamFreezeRecovery('تم تنشيط مسار البث البديل');
               break;
           }

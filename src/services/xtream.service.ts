@@ -203,8 +203,8 @@ export class XtreamService {
               added: s.added || '2026-01-01',
               custom_sid: null,
               tv_archive: s.tv_archive || 0,
-              // Direct .ts MPEG-TS stream for 100% reliable 200 OK playback!
-              direct_source: `${baseUrl}/live/${encodeURIComponent(account.username)}/${encodeURIComponent(account.password || '')}/${s.stream_id}.ts`,
+              // Xtream Codes standard .m3u8 HLS stream for cross-platform compatibility
+              direct_source: `${baseUrl}/live/${encodeURIComponent(account.username)}/${encodeURIComponent(account.password || '')}/${s.stream_id}.m3u8`,
               resolution: (s.name?.includes('4K') || s.name?.includes('UHD')) ? '4K UHD' : 'FHD',
               fps: 50,
               currentProgram: {

@@ -254,7 +254,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
 
       // Load active channel immediately into the initialized container
       if (activeChannel) {
-        const streamType = activeChannel.direct_source.includes('.ts') ? 'MPEG-TS' : 'HLS';
+        const streamType = activeChannel.direct_source.includes('.m3u8') ? 'HLS' : activeChannel.direct_source.includes('.ts') ? 'MPEG-TS' : 'HLS';
         PlayerManager.cacheStreamInfo(activeChannel.direct_source, streamType);
         player.current.loadStream(activeChannel.direct_source, streamType);
       }
@@ -280,7 +280,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
       }
 
       channelDebounceTimer.current = setTimeout(() => {
-        const streamType = activeChannel.direct_source.includes('.ts') ? 'MPEG-TS' : 'HLS';
+        const streamType = activeChannel.direct_source.includes('.m3u8') ? 'HLS' : activeChannel.direct_source.includes('.ts') ? 'MPEG-TS' : 'HLS';
         PlayerManager.cacheStreamInfo(activeChannel.direct_source, streamType);
         player.current.loadStream(activeChannel.direct_source, streamType);
       }, 120);

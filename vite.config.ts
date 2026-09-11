@@ -25,18 +25,28 @@ function corsProxyPlugin() {
         }
 
         try {
+          const forwardHeaders: Record<string, string> = {
+            'User-Agent': 'Mozilla/5.0 (SmartHub; SMART-TV; U; Linux/Tizen 6.0; SmartTV) AppleWebKit/537.36'
+          };
+          if (req.headers.range) {
+            forwardHeaders['Range'] = req.headers.range;
+          }
+
           const response = await fetch(targetUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (SmartHub; SMART-TV; U; Linux/Tizen 6.0; SmartTV) AppleWebKit/537.36'
-            }
+            headers: forwardHeaders
           });
 
           res.setHeader('Access-Control-Allow-Origin', '*');
           res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
           res.setHeader('Access-Control-Allow-Headers', '*');
+          res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
           res.statusCode = response.status;
           const contentType = response.headers.get('content-type') || '';
           if (contentType) res.setHeader('Content-Type', contentType);
+          const contentRange = response.headers.get('content-range');
+          if (contentRange) res.setHeader('Content-Range', contentRange);
+          const acceptRanges = response.headers.get('accept-ranges');
+          if (acceptRanges) res.setHeader('Accept-Ranges', acceptRanges);
 
           // If it's an HLS m3u8 playlist, rewrite relative chunk URLs to go through the proxy!
           if (targetUrl.includes('.m3u8') || contentType.includes('mpegurl') || contentType.includes('application/x-mpegURL')) {
@@ -48,7 +58,24 @@ function corsProxyPlugin() {
             // Rewrite lines that are relative or absolute URLs to point to /api/proxy?url=
             const rewritten = text.split('\n').map((line: string) => {
               const trimmed = line.trim();
-              if (!trimmed || trimmed.startsWith('#')) return line;
+              if (!trimmed) return line;
+
+              // Handle AES-128 encryption keys
+              if (trimmed.startsWith('#EXT-X-KEY:')) {
+                return trimmed.replace(/URI="([^"]+)"/, (_match, uri) => {
+                  let fullKeyUrl = uri;
+                  if (uri.startsWith('http://') || uri.startsWith('https://')) {
+                    fullKeyUrl = uri;
+                  } else if (uri.startsWith('/')) {
+                    fullKeyUrl = `${effectiveObj.origin}${uri}`;
+                  } else {
+                    fullKeyUrl = `${targetBase}${uri}`;
+                  }
+                  return `URI="/api/proxy?url=${encodeURIComponent(fullKeyUrl)}"`;
+                });
+              }
+
+              if (trimmed.startsWith('#')) return line;
               
               let fullChunkUrl = trimmed;
               if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
