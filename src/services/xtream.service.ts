@@ -9,8 +9,13 @@ export class XtreamService {
    * On Samsung Tizen TV (tizen hardware), fetch directly since config.xml has full access privileges.
    */
   private static getProxiedUrl(targetUrl: string): string {
-    if (typeof window !== 'undefined' && !((window as any).tizen) && targetUrl.startsWith('http')) {
-      return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+    // Only use /api/proxy in local Vite dev server on desktop browser (localhost:5173)
+    // On Android APK, Capacitor, Tizen, webOS, and GitHub Pages, fetch directly!
+    if (typeof window !== 'undefined') {
+      const isLocalDev = window.location.port === '5173' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      if (isLocalDev && targetUrl.startsWith('http')) {
+        return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+      }
     }
     return targetUrl;
   }

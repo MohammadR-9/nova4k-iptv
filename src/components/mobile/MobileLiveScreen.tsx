@@ -30,13 +30,32 @@ export const MobileLiveScreen: React.FC<MobileLiveScreenProps> = () => {
   const [isBuffering, setIsBuffering] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(35);
 
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const player = useRef(PlayerManager.getPlayer('auto'));
 
-  // 1. Fetch Categories & Channels
+  // Anti-freeze watchdog: never let buffering spinner hang longer than 3 seconds
+  useEffect(() => {
+    let timer: any;
+    if (isBuffering) {
+      timer = setTimeout(() => setIsBuffering(false), 3000);
+    }
+    return () => { if (timer) clearTimeout(timer); };
+  }, [isBuffering]);
+
+  // 1. Fetch Categories & Channels with Instant Hydration
   useEffect(() => {
     let isMounted = true;
+    
+    // Instant hydration so UI is never blank
+    setCategories([
+      { category_id: 'all', category_name: '★ جميع القنوات المباشرة' },
+      { category_id: 'sports', category_name: '⚽ باقة الرياضة العالمية' },
+      { category_id: 'news', category_name: '🌍 باقة الأخبار والأحداث' },
+      { category_id: 'entertainment', category_name: '🎬 القنوات الترفيهية' },
+    ]);
+
     const loadData = async () => {
       setIsLoading(true);
       try {
@@ -266,64 +285,76 @@ export const MobileLiveScreen: React.FC<MobileLiveScreenProps> = () => {
             لا توجد قنوات تطابق هذا البحث
           </div>
         ) : (
-          filteredChannels.map((channel) => {
-            const isSelected = activeChannel?.stream_id === channel.stream_id;
-            const isFav = favorites.includes(channel.stream_id);
+          <>
+            {filteredChannels.slice(0, visibleCount).map((channel) => {
+              const isSelected = activeChannel?.stream_id === channel.stream_id;
+              const isFav = favorites.includes(channel.stream_id);
 
-            return (
-              <div
-                key={channel.stream_id}
-                onClick={() => setActiveChannel(channel)}
-                className={`w-full flex items-center justify-between p-2.5 rounded-2xl border transition-all cursor-pointer active:scale-[0.99] ${
-                  isSelected
-                    ? 'bg-cyan-500/15 border-cyan-400/50 shadow-lg shadow-cyan-500/10'
-                    : 'bg-white/5 border-white/5 hover:bg-white/10'
-                }`}
-              >
-                <div className="flex items-center gap-3 overflow-hidden">
-                  {/* Channel Logo / Icon */}
-                  <div className="relative w-11 h-11 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
-                    {channel.stream_icon ? (
-                      <img 
-                        src={channel.stream_icon} 
-                        alt={channel.name} 
-                        className="w-full h-full object-contain"
-                        onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                      />
-                    ) : (
-                      <Tv className="w-5 h-5 text-cyan-400" />
-                    )}
-                    {isSelected && (
-                      <div className="absolute inset-0 bg-cyan-500/20 flex items-center justify-center">
-                        <Play className="w-4 h-4 text-cyan-300 fill-current animate-pulse" />
+              return (
+                <div
+                  key={channel.stream_id}
+                  onClick={() => setActiveChannel(channel)}
+                  className={`w-full flex items-center justify-between p-2.5 rounded-2xl border transition-all cursor-pointer active:scale-[0.99] ${
+                    isSelected
+                      ? 'bg-cyan-500/15 border-cyan-400/50 shadow-lg shadow-cyan-500/10'
+                      : 'bg-white/5 border-white/5 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    {/* Channel Logo / Icon */}
+                    <div className="relative w-11 h-11 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+                      {channel.stream_icon ? (
+                        <img 
+                          src={channel.stream_icon} 
+                          alt={channel.name} 
+                          className="w-full h-full object-contain"
+                          onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <Tv className="w-5 h-5 text-cyan-400" />
+                      )}
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-cyan-500/20 flex items-center justify-center">
+                          <Play className="w-4 h-4 text-cyan-300 fill-current animate-pulse" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Channel Info */}
+                    <div className="flex flex-col text-right overflow-hidden">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-white truncate">
+                          {channel.name}
+                        </span>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Channel Info */}
-                  <div className="flex flex-col text-right overflow-hidden">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-white truncate">
-                        {channel.name}
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        بث فائق الجودة • 1080p
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      بث فائق الجودة • 1080p
-                    </span>
                   </div>
-                </div>
 
-                {/* Star Favorite Button */}
-                <button
-                  type="button"
-                  onClick={(e) => toggleFavorite(channel.stream_id, e)}
-                  className="p-2 text-slate-400 hover:text-amber-400 active:scale-90 transition-all shrink-0"
-                >
-                  <Star className={`w-4 h-4 ${isFav ? 'text-amber-400 fill-amber-400' : ''}`} />
-                </button>
-              </div>
-            );
-          })
+                  {/* Star Favorite Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => toggleFavorite(channel.stream_id, e)}
+                    className="p-2 text-slate-400 hover:text-amber-400 active:scale-90 transition-all shrink-0"
+                  >
+                    <Star className={`w-4 h-4 ${isFav ? 'text-amber-400 fill-amber-400' : ''}`} />
+                  </button>
+                </div>
+              );
+            })}
+
+            {filteredChannels.length > visibleCount && (
+              <button
+                type="button"
+                onClick={() => setVisibleCount(prev => prev + 35)}
+                className="w-full py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-cyan-400 text-center active:scale-98 transition-all my-2"
+              >
+                تحميل المزيد من القنوات (+35 من أصل {filteredChannels.length})
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

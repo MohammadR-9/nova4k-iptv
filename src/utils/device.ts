@@ -15,13 +15,10 @@ export class DeviceDetector {
       return override;
     }
 
-    // 2. Hardware TV checks (Tizen, webOS)
-    if ((window as any).tizen) return 'tv';
-    if ((window as any).webOS) return 'tv';
+    // 2. Hardware TV checks (Tizen, webOS, Android TV)
+    if ((window as any).tizen || (window as any).webOS) return 'tv';
 
     const ua = navigator.userAgent || '';
-
-    // Smart TV User-Agents
     const tvKeywords = [
       'Tizen', 'SMART-TV', 'SmartTV', 'webOS', 'NetCast', 
       'BRAVIA', 'Viera', 'HbbTV', 'Android TV', 'AndroidTV', 
@@ -30,21 +27,13 @@ export class DeviceDetector {
     const isTvUa = tvKeywords.some(kw => new RegExp(kw, 'i').test(ua));
     if (isTvUa) return 'tv';
 
-    // 3. Mobile / Tablet checks
-    const mobileKeywords = ['Android', 'iPhone', 'iPad', 'iPod', 'Mobile', 'Tablet'];
-    const isMobileUa = mobileKeywords.some(kw => new RegExp(kw, 'i').test(ua));
-
-    // Touch device with screen width <= 1024px or mobile UA
-    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-    const isSmallScreen = window.innerWidth <= 1024;
-
-    if (isMobileUa || (isTouch && isSmallScreen)) {
-      return 'mobile';
+    // 3. Large screens (> 1024px) always default to TV mode
+    if (window.innerWidth > 1024) {
+      return 'tv';
     }
 
-    // Default for desktop browsers and big screens:
-    // If width < 900 -> mobile, else -> tv
-    return window.innerWidth <= 900 ? 'mobile' : 'tv';
+    // 4. Mobile & Tablet screens (<= 1024px)
+    return 'mobile';
   }
 
   public static isMobile(): boolean {
@@ -61,7 +50,6 @@ export class DeviceDetector {
     } else {
       localStorage.setItem(this.OVERRIDE_KEY, mode);
     }
-    // Update data-device attribute on html element
     const current = this.getDeviceMode();
     document.documentElement.setAttribute('data-device', current);
     window.dispatchEvent(new Event('device-mode-changed'));

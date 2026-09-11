@@ -11,7 +11,7 @@ export const SERVER_CONFIG = {
       const saved = localStorage.getItem('nova_master_dns');
       if (saved && saved.trim()) return saved.trim();
     } catch {}
-    return 'http://line.iptvdomain.com:8080';
+    return 'http://look.5g.in:8080';
   },
   setMasterDns: (url: string): void => {
     try {
@@ -34,7 +34,7 @@ export const SERVER_CONFIG = {
       const saved = localStorage.getItem('nova_master_dns');
       if (saved && saved.trim()) return saved.trim();
     } catch {}
-    return 'http://line.iptvdomain.com:8080';
+    return 'http://look.5g.in:8080';
   },
   get FALLBACK_PORTAL_URL(): string {
     return SERVER_CONFIG.DEFAULT_PORTAL_URL;
