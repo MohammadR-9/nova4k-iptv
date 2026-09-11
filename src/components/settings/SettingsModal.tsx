@@ -421,7 +421,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               className="tv-focusable px-5 py-2.5 bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 hover:text-red-300 rounded-xl font-bold text-sm flex items-center gap-2 transition-all"
             >
               <LogOut className="w-4 h-4" />
-              <span>تسجيل الخروج</span>
+              <span>تبديل البروفايل / خروج</span>
             </button>
           </div>
 

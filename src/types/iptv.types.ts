@@ -13,6 +13,24 @@ export interface UserAccount {
   isLiveServer?: boolean; // true if authenticated against live Xtream server (e.g. look4k.net)
   serverName?: string;
   serverPingMs?: number;
+  profileId?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  authType: 'code' | 'credentials';
+  code?: string;
+  username?: string;
+  password?: string;
+  serverUrl?: string;
+  serverName?: string;
+  status?: 'Active' | 'Expired' | 'Trial';
+  expDate?: string;
+  daysRemaining?: number;
+  maxConnections?: number;
+  lastUsedAt: number;
+  createdAt: number;
 }
 
 export interface LiveCategory {

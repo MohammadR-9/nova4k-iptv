@@ -67,7 +67,7 @@ export const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({
               }`}
             >
               <LogOut className="w-4 h-4" />
-              <span>{isLogoutMode ? 'تسجيل الخروج' : 'خروج من التطبيق'}</span>
+              <span>{isLogoutMode ? 'تبديل البروفايل / خروج' : 'خروج من التطبيق'}</span>
             </button>
           </div>
 
