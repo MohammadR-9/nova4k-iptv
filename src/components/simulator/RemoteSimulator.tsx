@@ -18,6 +18,32 @@ export const RemoteSimulator: React.FC<RemoteSimulatorProps> = ({ onKeyPress, cu
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
 
+  // Smart device detection for remote name
+  const getRemoteName = () => {
+    const ua = navigator.userAgent;
+    if (/Tizen/i.test(ua)) return 'ريموت Samsung';
+    if (/webOS|NetCast/i.test(ua)) return 'ريموت LG';
+    if (/BRAVIA/i.test(ua)) return 'ريموت Sony';
+    if (/Viera/i.test(ua)) return 'ريموت Panasonic';
+    if (/Android TV|AndroidTV|AFT/i.test(ua)) return 'ريموت Android TV';
+    return 'ريموت التحكم';
+  };
+
+  const getRemoteHeader = () => {
+    const ua = navigator.userAgent;
+    if (/Tizen/i.test(ua)) return 'SAMSUNG REMOTE';
+    if (/webOS|NetCast/i.test(ua)) return 'LG MAGIC REMOTE';
+    if (/BRAVIA/i.test(ua)) return 'SONY REMOTE';
+    if (/Android TV|AndroidTV/i.test(ua)) return 'ANDROID TV REMOTE';
+    return 'SMART REMOTE';
+  };
+
+  // Hide remote on mobile/touch devices (no need for D-pad simulator)
+  const isMobile = typeof window !== 'undefined' && 
+    document.documentElement.getAttribute('data-device') === 'mobile';
+  if (isMobile) return null;
+
+
   // If running on actual Samsung Smart TV hardware, don't render virtual remote
   if (typeof window !== 'undefined' && (window as any).tizen) {
     return null;
@@ -50,7 +76,7 @@ export const RemoteSimulator: React.FC<RemoteSimulatorProps> = ({ onKeyPress, cu
         title="إظهار ريموت المحاكي"
       >
         <Tv className="w-5 h-5 text-accent-cyan" />
-        <span className="text-sm font-bold">ريموت سامسونج</span>
+        <span className="text-sm font-bold">{getRemoteName()}</span>
         <Eye className="w-4 h-4 ml-1" />
       </button>
     );
@@ -62,7 +88,7 @@ export const RemoteSimulator: React.FC<RemoteSimulatorProps> = ({ onKeyPress, cu
       <div className="w-full flex items-center justify-between pb-3 border-b border-white/10 mb-3">
         <div className="flex items-center gap-2">
           <Tv className="w-5 h-5 text-accent-cyan" />
-          <span className="text-xs font-bold tracking-wider text-slate-300">SAMSUNG ONE REMOTE</span>
+          <span className="text-xs font-bold tracking-wider text-slate-300">{getRemoteHeader()}</span>
         </div>
         <button 
           onClick={() => setIsCollapsed(true)} 
