@@ -257,8 +257,7 @@ export class ShakaPlayerEngine implements ITvPlayerEngine {
     } catch {}
 
     return [
-      { id: 0, language: 'ara', label: 'المعلق الرئيسي (Google Shaka)', channels: '2.0 Stereo', codec: 'AAC', isActive: true },
-      { id: 1, language: 'eng', label: 'English Track', channels: '2.0 Stereo', codec: 'AAC', isActive: false }
+      { id: 0, language: 'und', label: 'المسار الصوتي الأساسي (Default Audio)', channels: '2.0 Stereo', codec: 'AAC', isActive: true }
     ];
   }
 

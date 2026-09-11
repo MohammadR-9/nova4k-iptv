@@ -186,8 +186,7 @@ export class WebOsMediaEngine implements ITvPlayerEngine {
 
   public getAudioTracks(): PlayerAudioTrack[] {
     return [
-      { id: 0, language: 'ara', label: 'المعلق الأول (LG Hardware 5.1)', channels: '5.1 Dolby', codec: 'AC3', isActive: true },
-      { id: 1, language: 'eng', label: 'English Track', channels: '2.0 Stereo', codec: 'AAC', isActive: false }
+      { id: 0, language: 'und', label: 'المسار الصوتي الأساسي (Default Audio)', channels: '2.0 Stereo', codec: 'AAC', isActive: true }
     ];
   }
 

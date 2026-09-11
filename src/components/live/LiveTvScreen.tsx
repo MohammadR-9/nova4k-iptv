@@ -763,6 +763,42 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        setSubtitleModalOpen(true);
+                        resetMobileOverlayTimer();
+                      }}
+                      className="p-2 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-purple-400 hover:text-white"
+                      title="الترجمة"
+                    >
+                      <Subtitles className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAudioSettingsOpen(true);
+                        resetMobileOverlayTimer();
+                      }}
+                      className="p-2 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-cyan-400 hover:text-white"
+                      title="المسارات الصوتية والمعلقين"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenDiagnostics();
+                        resetMobileOverlayTimer();
+                      }}
+                      className="p-2 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-slate-300 hover:text-white"
+                      title="تشخيص البث والمشغل"
+                    >
+                      <Settings2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         const vid = player.current.getVideoElement();
                         if (vid) {
                           vid.muted = !isMuted;
@@ -773,7 +809,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                       className="p-2 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white"
                       title={isMuted ? 'إلغاء الكتم' : 'كتم الصوت'}
                     >
-                      {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
+                      {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-slate-300" />}
                     </button>
                     <button
                       type="button"
@@ -827,7 +863,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
               /* Non-fullscreen standard mobile top controls */
               <div className="absolute top-2 right-2 left-2 flex items-center justify-between pointer-events-none z-20">
                 {activeChannel && (
-                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/15 max-w-[65%] truncate">
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/15 max-w-[50%] truncate">
                     <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
                     <span className="text-[10px] font-bold text-white truncate">{activeChannel.name}</span>
                   </div>
@@ -849,6 +885,39 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
+                      setSubtitleModalOpen(true);
+                    }}
+                    className="p-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-purple-400"
+                    title="الترجمة"
+                  >
+                    <Subtitles className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAudioSettingsOpen(true);
+                    }}
+                    className="p-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-cyan-400"
+                    title="المسار الصوتي والمعلقين"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenDiagnostics();
+                    }}
+                    className="p-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-slate-300"
+                    title="تشخيص البث"
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
                       const vid = player.current.getVideoElement();
                       if (vid) {
                         vid.muted = !isMuted;
@@ -858,7 +927,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                     className="p-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white"
                     title={isMuted ? 'إلغاء الكتم' : 'كتم الصوت'}
                   >
-                    {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-slate-300" />}
                   </button>
                   <button
                     type="button"

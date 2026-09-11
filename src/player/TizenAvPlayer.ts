@@ -248,9 +248,7 @@ export class TizenAvPlayer implements ITvPlayerEngine {
     } catch {}
 
     return [
-      { id: 0, language: 'ara', label: 'المعلق الأول (عصام الشوالي)', channels: '5.1 Dolby', codec: 'E-AC3', isActive: this.selectedAudioTrackId === 0 },
-      { id: 1, language: 'ara', label: 'المعلق الثاني (حفيظ دراجي)', channels: '2.0 Stereo', codec: 'AAC', isActive: this.selectedAudioTrackId === 1 },
-      { id: 2, language: 'eng', label: 'English Commentary', channels: '2.0 Stereo', codec: 'AAC', isActive: this.selectedAudioTrackId === 2 }
+      { id: 0, language: 'und', label: 'المسار الصوتي الأساسي (Default Audio)', channels: '2.0 Stereo', codec: 'AAC', isActive: this.selectedAudioTrackId === 0 }
     ];
   }
 
@@ -301,10 +299,6 @@ export class TizenAvPlayer implements ITvPlayerEngine {
       }
     } catch {}
 
-    list.push(
-      { id: 0, language: 'ara', label: 'العربية (Arabic SRT)', isActive: this.selectedSubtitleTrackId === 0 },
-      { id: 1, language: 'eng', label: 'English (SDH)', isActive: this.selectedSubtitleTrackId === 1 }
-    );
     return list;
   }
 

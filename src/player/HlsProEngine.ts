@@ -133,8 +133,8 @@ export class HlsProEngine implements ITvPlayerEngine {
       this.seekAttemptCount++;
       const cur = this.videoElement.currentTime;
 
-      // Check if seek is satisfied (within realistic GOP keyframe range)
-      if (cur >= Math.max(1, this.pendingSeekTime - 15.0)) {
+      // Check if seek is satisfied
+      if (cur >= Math.max(1, this.pendingSeekTime - 3.0)) {
         this.isSeekConfirmed = true;
         this.pendingSeekTime = null;
         this.clearSeekWatchdog();
@@ -142,7 +142,7 @@ export class HlsProEngine implements ITvPlayerEngine {
         return;
       }
 
-      // If video metadata is ready and not seeking, apply seek once
+      // If video metadata is ready and not seeking, apply seek
       if (this.videoElement.readyState >= 1 && !this.videoElement.seeking) {
         try {
           this.videoElement.currentTime = this.pendingSeekTime;
@@ -154,10 +154,8 @@ export class HlsProEngine implements ITvPlayerEngine {
         this.videoElement.play().catch(() => {});
       }
 
-      // Safety timeout after ~4 seconds
-      if (this.seekAttemptCount >= 4) {
-        this.isSeekConfirmed = true;
-        this.pendingSeekTime = null;
+      // Generous timeout (after ~25 seconds of trying)
+      if (this.seekAttemptCount >= 25) {
         this.clearSeekWatchdog();
         this.events.onBuffering?.(false);
       }
@@ -462,14 +460,7 @@ export class HlsProEngine implements ITvPlayerEngine {
         if (sessionId !== this.currentLoadSessionId) return;
         if (this.bufferingSafetyTimeout) clearTimeout(this.bufferingSafetyTimeout);
 
-        // Media Fragments URI (W3C standard):
-        // Appending #t=seconds tells the browser/WebView to request Range bytes directly at target time!
-        let directUrl = streamUrl;
-        if (startPosition > 0 && !directUrl.includes('#')) {
-          directUrl = `${streamUrl}#t=${Math.floor(startPosition)}`;
-        }
-
-        this.videoElement!.src = directUrl;
+        this.videoElement!.src = streamUrl;
         this.videoElement!.load();
 
         if (startPosition > 0) {
@@ -749,16 +740,14 @@ export class HlsProEngine implements ITvPlayerEngine {
       return this.hls.audioTracks.map((t, idx) => ({
         id: idx,
         language: t.lang || `Track ${idx + 1}`,
-        label: t.name || (idx === 0 ? 'المعلق الأول (تعليق رئيسي)' : `المعلق ${idx + 1}`),
+        label: t.name || (t.lang ? `صوت (${t.lang.toUpperCase()})` : `المسار الصوتي ${idx + 1}`),
         channels: '2.0 Stereo',
         codec: 'AAC',
         isActive: idx === this.hls!.audioTrack
       }));
     }
     return [
-      { id: 0, language: 'ara', label: 'المعلق الأول (عصام الشوالي)', channels: '5.1 Dolby', codec: 'AC3', isActive: true },
-      { id: 1, language: 'ara', label: 'المعلق الثاني (حفيظ دراجي)', channels: '2.0 Stereo', codec: 'AAC', isActive: false },
-      { id: 2, language: 'eng', label: 'English Commentary', channels: '2.0 Stereo', codec: 'AAC', isActive: false }
+      { id: 0, language: 'und', label: 'المسار الصوتي الأساسي (Default Audio)', channels: '2.0 Stereo', codec: 'AAC', isActive: true }
     ];
   }
 
@@ -827,15 +816,10 @@ export class HlsProEngine implements ITvPlayerEngine {
         tracks.push({
           id: idx,
           language: t.lang || `sub_${idx}`,
-          label: t.name || (t.lang === 'ara' ? 'العربية' : t.lang === 'eng' ? 'English' : `Subtitle ${idx + 1}`),
+          label: t.name || (t.lang === 'ara' ? 'العربية' : t.lang === 'eng' ? 'English' : `ترجمة ${idx + 1}`),
           isActive: idx === this.selectedSubtitleId
         });
       });
-    } else {
-      tracks.push(
-        { id: 0, language: 'ara', label: 'العربية (Arabic Subtitles)', isActive: this.selectedSubtitleId === 0 },
-        { id: 1, language: 'eng', label: 'English (SDH / CC)', isActive: this.selectedSubtitleId === 1 }
-      );
     }
     return tracks;
   }

@@ -157,7 +157,17 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
     return () => clearInterval(timer);
   }, []);
 
-  // 1. Reset and manage OSD auto-hide timer
+  // Keep latest states in refs for resetControlsTimer so its callback reference NEVER changes!
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+  const showAudioModalRef = useRef(showAudioModal);
+  showAudioModalRef.current = showAudioModal;
+  const showSubtitleModalRef = useRef(showSubtitleModal);
+  showSubtitleModalRef.current = showSubtitleModal;
+  const showResumePromptRef = useRef(showResumePrompt);
+  showResumePromptRef.current = showResumePrompt;
+
+  // 1. Reset and manage OSD auto-hide timer (Empty dependency array -> stable reference!)
   const resetControlsTimer = useCallback(() => {
     setShowControls(true);
     if (controlsTimeoutRef.current) {
@@ -165,11 +175,11 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
     }
     // Auto-hide after 4.5 seconds if playing and modals are closed
     controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying && !showAudioModal && !showSubtitleModal && !showResumePrompt) {
+      if (isPlayingRef.current && !showAudioModalRef.current && !showSubtitleModalRef.current && !showResumePromptRef.current) {
         setShowControls(false);
       }
     }, 4500);
-  }, [isPlaying, showAudioModal, showSubtitleModal, showResumePrompt]);
+  }, []);
 
   // 2. Center visual feedback trigger
   const showCenterFeedback = (icon: 'fwd' | 'rwd' | 'play' | 'pause', text: string, targetTime: number) => {
@@ -340,7 +350,7 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       }
       player.current.stop();
     };
-  }, [item, resetControlsTimer]);
+  }, [item.id, item.streamUrl]);
 
   // 7. Resume Dialog handlers
   const handleResumeAccept = () => {
@@ -350,13 +360,6 @@ export const VodPlayer: React.FC<VodPlayerProps> = ({ item, onBack, externalTrig
       setCurrentTime(targetTime);
       currentTimeRef.current = targetTime;
       setIsBuffering(true);
-
-      // Auto-clear pendingResumeRef after 3.5s safety timeout
-      setTimeout(() => {
-        if (pendingResumeRef.current !== null) {
-          pendingResumeRef.current = null;
-        }
-      }, 3500);
 
       const streamType: 'HLS' | 'MP4' = isHlsStream(item.streamUrl) ? 'HLS' : 'MP4';
       player.current.loadStream(item.streamUrl, streamType, targetTime).then(() => {
