@@ -1,35 +1,47 @@
 {
+  "id": "com.nova.iptvpro",
   "name": "NOVA 4K ULTRA",
   "short_name": "NOVA 4K",
   "description": "Smart IPTV Player - Live TV, Movies & Series in 4K Ultra HD",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#07090e",
   "theme_color": "#06b6d4",
-  "orientation": "landscape",
+  "orientation": "any",
   "lang": "ar",
   "dir": "rtl",
   "scope": "./",
   "categories": ["entertainment", "video"],
   "icons": [
     {
-      "src": "icons/icon-192.png",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
-  "screenshots": [],
   "shortcuts": [
     {
       "name": "Live TV",
-      "url": "./index.html#live",
+      "url": "./#live",
       "description": "Open Live TV channels"
     }
   ]
