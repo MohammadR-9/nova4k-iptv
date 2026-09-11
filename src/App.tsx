@@ -19,6 +19,7 @@ import { ExitConfirmModal, ExitModalMode } from './components/common/ExitConfirm
 import { AdminPortalScreen } from './components/admin/AdminPortalScreen';
 import { MobileBottomNav } from './components/navigation/MobileBottomNav';
 import { ProfilesModal } from './components/profile/ProfilesModal';
+import { ProfileService } from './services/profile.service';
 import { isMobileDevice } from './utils/device';
 import { ScreenOrientationManager } from './utils/orientation';
 import { webOSAdapter } from './utils/webos.adapter';
@@ -47,6 +48,14 @@ export const App: React.FC = () => {
 
   // Automatic Device Detection (Mobile/Tablet vs Smart TV)
   const [isMobile, setIsMobile] = useState<boolean>(isMobileDevice);
+
+  // Ensure current active account is saved as a profile
+  useEffect(() => {
+    const saved = ActivationService.getSavedAccount();
+    if (saved) {
+      ProfileService.autoSaveAccount(saved);
+    }
+  }, []);
 
   useEffect(() => {
     const handleDeviceMode = () => {

@@ -279,22 +279,20 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
         </div>
 
         {/* Auth Mode Tabs (Profiles vs Code vs Credentials) */}
-        <div className={`w-full grid ${profiles.length > 0 ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5 p-1 bg-surface-elevated rounded-2xl mb-5 border border-white/5`}>
-          {profiles.length > 0 && (
-            <button
-              data-nav-id="btn-tab-profiles"
-              data-nav-group="auth-tabs"
-              onClick={() => { setActiveTab('profiles'); setErrorMsg(null); }}
-              className={`tv-focusable flex items-center justify-center gap-1.5 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm md:text-base transition-all ${
-                activeTab === 'profiles' 
-                  ? 'bg-gradient-to-r from-purple-500/25 to-indigo-500/25 text-purple-300 border border-purple-400/40 shadow-sm' 
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>البروفايلات ({profiles.length})</span>
-            </button>
-          )}
+        <div className="w-full grid grid-cols-3 gap-1.5 p-1 bg-surface-elevated rounded-2xl mb-5 border border-white/5">
+          <button
+            data-nav-id="btn-tab-profiles"
+            data-nav-group="auth-tabs"
+            onClick={() => { setActiveTab('profiles'); setErrorMsg(null); }}
+            className={`tv-focusable flex items-center justify-center gap-1.5 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm md:text-base transition-all ${
+              activeTab === 'profiles' 
+                ? 'bg-gradient-to-r from-purple-500/25 to-indigo-500/25 text-purple-300 border border-purple-400/40 shadow-sm' 
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>البروفايلات ({profiles.length})</span>
+          </button>
 
           <button
             data-nav-id="btn-tab-code"
@@ -350,6 +348,25 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
               </button>
             </div>
 
+            {profiles.length === 0 ? (
+              <div className="py-8 px-4 flex flex-col items-center justify-center text-center bg-white/5 border border-white/10 rounded-2xl">
+                <div className="w-12 h-12 rounded-2xl bg-nova-purple/20 border border-nova-purple/30 flex items-center justify-center text-nova-purple mb-2.5">
+                  <Users className="w-6 h-6" />
+                </div>
+                <h4 className="text-sm font-bold text-white mb-1">لا توجد بروفايلات محفوظة حتى الآن</h4>
+                <p className="text-xs text-slate-400 max-w-xs mb-3">
+                  سجل الدخول بأي كود أو حساب اشتراك وسيتم حفظه هنا تلقائياً لتبديل سهل وسريع
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('code')}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-nova-cyan to-blue-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  <span>تسجيل الدخول بكود تفعيل</span>
+                </button>
+              </div>
+            ) : (
             <div className="max-h-[350px] overflow-y-auto space-y-2.5 pr-1">
               {profiles.map((prof, idx) => (
                 <div
@@ -474,6 +491,7 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
                 </div>
               ))}
             </div>
+            )}
 
             {/* Switch to add new profile */}
             <div className="w-full pt-2 flex items-center justify-center gap-3">
