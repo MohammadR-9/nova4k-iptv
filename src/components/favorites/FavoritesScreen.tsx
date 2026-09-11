@@ -6,6 +6,7 @@ import {
 import { FavoritesService, FavoriteEntry, FavoriteType } from '../../services/favorites.service';
 import { spatialNav } from '../../navigation/spatialNav';
 import { VodItem, LiveChannel } from '../../types/iptv.types';
+import { matchesSearch } from '../../utils/searchHelper';
 
 interface FavoritesScreenProps {
   onBackToHome: () => void;
@@ -36,7 +37,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
 
   const filtered = favorites.filter(f => {
     const matchTab = activeTab === 'all' || f.type === activeTab;
-    const matchSearch = !searchQuery || f.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchSearch = matchesSearch(f.name, searchQuery);
     return matchTab && matchSearch;
   });
 

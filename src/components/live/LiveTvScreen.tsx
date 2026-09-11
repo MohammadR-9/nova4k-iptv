@@ -27,6 +27,7 @@ import { SubtitleDubbingModal } from './SubtitleDubbingModal';
 import { ChannelReorderModal } from './ChannelReorderModal';
 import { isMobileDevice } from '../../utils/device';
 import { ScreenOrientationManager } from '../../utils/orientation';
+import { matchesSearch, matchesItemMetadata } from '../../utils/searchHelper';
 
 interface LiveTvScreenProps {
   onBackToHome: () => void;
@@ -409,7 +410,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
   // Filtered Categories based on category search query
   const filteredCategories = useMemo(() => {
     if (!categorySearch.trim()) return categories;
-    return categories.filter(c => c.category_name.toLowerCase().includes(categorySearch.toLowerCase().trim()));
+    return categories.filter(c => matchesSearch(c.category_name, categorySearch));
   }, [categories, categorySearch]);
 
   // Channel counts per category
@@ -459,17 +460,19 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
     return () => { isMounted = false; };
   }, [selectedCatId]);
 
-  // Filtered Channels computation
+  // Filtered Channels computation (Arabic & Multilingual Normalized Search)
   const filteredChannels = useMemo(() => {
     return allChannels.filter(ch => {
       if (selectedCatId === 'favorites' && !favorites.includes(ch.stream_id)) return false;
 
       if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase().trim();
-        const matchName = ch.name.toLowerCase().includes(query);
-        const matchNum = ch.num.toString().includes(query);
-        const matchShow = ch.currentProgram?.title.toLowerCase().includes(query) || false;
-        if (!matchName && !matchNum && !matchShow) return false;
+        const itemObj = {
+          name: ch.name,
+          num: ch.num,
+          epg_channel_id: ch.epg_channel_id,
+          plot: ch.currentProgram?.title
+        };
+        if (!matchesItemMetadata(itemObj, searchQuery)) return false;
       }
       return true;
     });

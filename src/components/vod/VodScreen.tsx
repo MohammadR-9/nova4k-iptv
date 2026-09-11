@@ -10,6 +10,7 @@ import { VodResumeService, ResumePoint } from '../../services/vodResume.service'
 import { spatialNav } from '../../navigation/spatialNav';
 import { AiMovieAdvisorModal } from './AiMovieAdvisorModal';
 import { isMobileDevice } from '../../utils/device';
+import { matchesSearch, matchesItemMetadata } from '../../utils/searchHelper';
 
 interface VodScreenProps {
   onBackToHome: () => void;
@@ -179,14 +180,12 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
   // Filter Categories by catSearchQuery
   const filteredCategories = useMemo(() => {
     if (!catSearchQuery.trim()) return categories;
-    const q = catSearchQuery.toLowerCase().trim();
-    return categories.filter(c => c.category_name.toLowerCase().includes(q));
+    return categories.filter(c => matchesSearch(c.category_name, catSearchQuery));
   }, [categories, catSearchQuery]);
 
   // Filter and Sort Movies (uses global master search across all 12,699 movies when searching)
   const filteredMovies = useMemo(() => {
     const isSearching = !!searchQuery.trim();
-    const q = searchQuery.toLowerCase().trim();
 
     // Pool of movies to search/filter from
     let sourcePool = allMovies;
@@ -197,10 +196,7 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
         masterSearchResults.forEach(m => map.set(m.stream_id, m));
         allMovies.forEach(m => {
           if (!map.has(m.stream_id)) {
-            const matchName = m.name?.toLowerCase().includes(q) || false;
-            const matchCast = m.cast?.toLowerCase().includes(q) || false;
-            const matchDirector = m.director?.toLowerCase().includes(q) || false;
-            if (matchName || matchCast || matchDirector) {
+            if (matchesItemMetadata(m, searchQuery)) {
               map.set(m.stream_id, m);
             }
           }
@@ -210,12 +206,9 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
     }
 
     let result = sourcePool.filter(m => {
-      // 1. Text Search (always filter against query string)
+      // 1. Text Search (always filter against query string using Arabic/multilingual matcher)
       if (isSearching) {
-        const matchName = m.name?.toLowerCase().includes(q) || false;
-        const matchCast = m.cast?.toLowerCase().includes(q) || false;
-        const matchDirector = m.director?.toLowerCase().includes(q) || false;
-        if (!matchName && !matchCast && !matchDirector) return false;
+        if (!matchesItemMetadata(m, searchQuery)) return false;
       }
 
       // 2. Quick Top Filter

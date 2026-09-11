@@ -11,6 +11,7 @@ import { spatialNav } from '../../navigation/spatialNav';
 import { TV_KEYS } from '../../navigation/keycodes';
 import { AiMovieAdvisorModal } from '../vod/AiMovieAdvisorModal';
 import { isMobileDevice } from '../../utils/device';
+import { matchesSearch, matchesItemMetadata } from '../../utils/searchHelper';
 
 export interface SeriesScreenProps {
   onBackToHome: () => void;
@@ -181,16 +182,15 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
   };
 
   // Filter Categories by catSearchQuery
+  // Filter Categories by catSearchQuery
   const filteredCategories = useMemo(() => {
     if (!catSearchQuery.trim()) return categories;
-    const q = catSearchQuery.toLowerCase().trim();
-    return categories.filter(c => c.category_name.toLowerCase().includes(q));
+    return categories.filter(c => matchesSearch(c.category_name, catSearchQuery));
   }, [categories, catSearchQuery]);
 
   // 3. Search & Filter Multi-Attributes (uses master global search across all 10,008 series when searching)
   const filteredSeries = useMemo(() => {
     const isSearching = !!searchQuery.trim();
-    const q = searchQuery.toLowerCase().trim();
 
     // Pool of series to search/filter from
     let sourcePool = allSeries;
@@ -200,10 +200,7 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
         masterSearchResults.forEach(s => map.set(s.series_id, s));
         allSeries.forEach(s => {
           if (!map.has(s.series_id)) {
-            const matchName = s.name?.toLowerCase().includes(q) || false;
-            const matchCast = s.cast?.toLowerCase().includes(q) || false;
-            const matchGenre = s.genre?.toLowerCase().includes(q) || false;
-            if (matchName || matchCast || matchGenre) {
+            if (matchesItemMetadata(s, searchQuery)) {
               map.set(s.series_id, s);
             }
           }
@@ -213,12 +210,9 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
     }
 
     let result = sourcePool.filter(s => {
-      // Text Search (always filter against query string)
+      // Text Search (always filter against query string using Arabic/multilingual matcher)
       if (isSearching) {
-        const matchName = s.name?.toLowerCase().includes(q) || false;
-        const matchCast = s.cast?.toLowerCase().includes(q) || false;
-        const matchGenre = s.genre?.toLowerCase().includes(q) || false;
-        if (!matchName && !matchCast && !matchGenre) return false;
+        if (!matchesItemMetadata(s, searchQuery)) return false;
       }
 
       // Quick Top Filter

@@ -1,6 +1,7 @@
 import { LiveCategory, LiveChannel, VodItem, SeriesItem, SeriesSeason, SeriesEpisode } from '../types/iptv.types';
 import { SERVER_CONFIG } from '../config/server.config';
 import { ActivationService } from './activation.service';
+import { matchesItemMetadata } from '../utils/searchHelper';
 
 export class XtreamService {
   /**
@@ -1164,11 +1165,7 @@ export class XtreamService {
     }
 
     const allItems = Array.from(pool.values());
-    return allItems.filter(m => 
-      (m.name && m.name.toLowerCase().includes(q)) ||
-      (m.cast && m.cast.toLowerCase().includes(q)) ||
-      (m.director && m.director.toLowerCase().includes(q))
-    );
+    return allItems.filter(m => matchesItemMetadata(m, query));
   }
 
   /**
@@ -1544,11 +1541,7 @@ export class XtreamService {
     }
 
     const allItems = Array.from(pool.values());
-    return allItems.filter(s => 
-      (s.name && s.name.toLowerCase().includes(q)) ||
-      (s.cast && s.cast.toLowerCase().includes(q)) ||
-      (s.genre && s.genre.toLowerCase().includes(q))
-    );
+    return allItems.filter(s => matchesItemMetadata(s, query));
   }
 
   /**
