@@ -73,84 +73,186 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   📱 MOBILE RESPONSIVE OVERRIDES
-   Applied when data-device="mobile" (non-TV devices)
-   TV devices keep the fixed 1920x1080 layout
+   📱 MOBILE & TABLET RESPONSIVE — NATIVE-QUALITY LAYOUT
+   Triggered by data-device="mobile" set in index.html
+   TV devices keep the fixed 1920x1080 layout untouched
    ═══════════════════════════════════════════════════════════ */
 
-/* Mobile: allow scrolling on non-TV */
-[data-device="mobile"] body,
-[data-device="mobile"] #root {
-  overflow: auto !important;
+/* ── Global: allow scrolling on non-TV ───────────────────── */
+html[data-device="mobile"],
+html[data-device="mobile"] body {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto !important;
+  min-height: 100dvh;
+  -webkit-overflow-scrolling: touch;
+}
+
+html[data-device="mobile"] #root {
+  overflow-y: auto !important;
   height: auto !important;
   min-height: 100dvh;
 }
 
-/* Mobile login card: full width, centered */
-@media (max-width: 900px) {
-  /* Root fills screen naturally */
-  html[data-device="mobile"] .h-full { height: 100dvh; }
+/* ── Disable TV-specific effects on mobile ───────────────── */
+html[data-device="mobile"] .tv-focusable {
+  will-change: auto !important;
+}
+html[data-device="mobile"] .tv-focused,
+html[data-device="mobile"] .tv-focused-subtle {
+  transform: none !important;
+  box-shadow: 0 0 0 2px #00E5FF !important;
+}
 
-  /* Login card: stack vertically, readable size */
-  html[data-device="mobile"] .login-card,
-  html[data-device="mobile"] [class*="rounded-2xl"][class*="backdrop-blur"] {
-    width: 92vw !important;
-    max-width: 440px !important;
-    margin: auto !important;
+/* ── Mobile Portrait (phones < 640px) ────────────────────── */
+@media (max-width: 640px) {
+  /* Login outer wrapper: fill screen, no dead space */
+  html[data-device="mobile"] .bg-radial-vignette {
+    padding: 1rem !important;
+    padding-top: 2rem !important;
+    align-items: flex-start !important;
+  }
+
+  /* Login card: full width, compact padding */
+  html[data-device="mobile"] .bg-radial-vignette > div[class*="backdrop-blur"] {
+    width: 100% !important;
+    max-width: 100% !important;
     padding: 1.25rem !important;
+    border-radius: 1rem !important;
+    margin: 0 !important;
   }
 
-  /* Scale up text for mobile readability */
-  html[data-device="mobile"] .text-xs  { font-size: 0.8rem !important; }
-  html[data-device="mobile"] .text-sm  { font-size: 0.9rem !important; }
-  html[data-device="mobile"] .text-base { font-size: 1rem !important; }
-  html[data-device="mobile"] .text-lg  { font-size: 1.1rem !important; }
-  html[data-device="mobile"] .text-xl  { font-size: 1.2rem !important; }
-  html[data-device="mobile"] .text-2xl { font-size: 1.4rem !important; }
-  html[data-device="mobile"] .text-3xl { font-size: 1.7rem !important; }
-  html[data-device="mobile"] .text-4xl { font-size: 2rem !important; }
-
-  /* Buttons: larger tap targets on mobile */
-  html[data-device="mobile"] button {
-    min-height: 44px;
-    font-size: 0.95rem !important;
+  /* Logo section: smaller on mobile */
+  html[data-device="mobile"] .bg-radial-vignette h1 {
+    font-size: 1.75rem !important;
+  }
+  html[data-device="mobile"] .bg-radial-vignette .tracking-widest {
+    font-size: 0.55rem !important;
+    letter-spacing: 0.15em !important;
   }
 
-  /* Inputs: readable on mobile */
-  html[data-device="mobile"] input {
+  /* Server status bar: compact */
+  html[data-device="mobile"] .bg-radial-vignette [class*="bg-surface-elevated"][class*="rounded-2xl"] {
+    padding: 0.5rem 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+  html[data-device="mobile"] .bg-radial-vignette [class*="bg-surface-elevated"][class*="rounded-2xl"] span[class*="text-[10px]"] {
+    font-size: 0.6rem !important;
+  }
+
+  /* Tabs: touch-friendly height */
+  html[data-device="mobile"] .bg-radial-vignette [class*="grid-cols-2"] button {
+    padding-top: 0.625rem !important;
+    padding-bottom: 0.625rem !important;
+    font-size: 0.8rem !important;
+    min-height: 40px !important;
+  }
+
+  /* Inputs: native mobile feel */
+  html[data-device="mobile"] .bg-radial-vignette input {
+    height: 48px !important;
     font-size: 1rem !important;
-    height: 44px !important;
+    border-radius: 0.75rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  /* Code input: keep monospace but readable */
+  html[data-device="mobile"] .bg-radial-vignette input[class*="tracking-widest"] {
+    font-size: 1.25rem !important;
+    height: 52px !important;
   }
 
-  /* TV sidebar/grid: become vertical list on mobile */
-  html[data-device="mobile"] .channel-grid {
-    grid-template-columns: 1fr !important;
+  /* Labels */
+  html[data-device="mobile"] .bg-radial-vignette label {
+    font-size: 0.8rem !important;
+    margin-bottom: 0.25rem !important;
   }
 
-  /* TV focused states: disable scale on mobile (no D-pad) */
-  html[data-device="mobile"] .tv-focused {
-    transform: none !important;
-    box-shadow: 0 0 0 2px #00E5FF !important;
+  /* Submit button: big, thumb-friendly */
+  html[data-device="mobile"] .bg-radial-vignette button[class*="from-cyan-500"] {
+    height: 52px !important;
+    font-size: 1rem !important;
+    border-radius: 0.875rem !important;
+    min-height: 52px !important;
   }
 
-  /* Bottom nav: show on mobile, hide Samsung remote hint */
-  html[data-device="mobile"] .remote-simulator-hint { display: none !important; }
+  /* Helper text: smaller */
+  html[data-device="mobile"] .bg-radial-vignette p[class*="text-[11px]"] {
+    font-size: 0.65rem !important;
+  }
 
-  /* Player: full screen on mobile */
-  html[data-device="mobile"] video {
-    width: 100vw !important;
-    height: 56.25vw !important; /* 16:9 */
-    max-height: 60vh;
+  /* Footer */
+  html[data-device="mobile"] .bg-radial-vignette [class*="border-t"] {
+    margin-top: 1rem !important;
+    padding-top: 0.75rem !important;
+    font-size: 0.6rem !important;
+  }
+
+  /* Demo codes section: compact */
+  html[data-device="mobile"] .bg-radial-vignette [class*="rounded-xl"][class*="cursor-pointer"] {
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  /* Admin button: smaller */
+  html[data-device="mobile"] .bg-radial-vignette button[class*="absolute"][class*="top-4"] {
+    top: 0.5rem !important;
+    left: 0.5rem !important;
+    padding: 0.375rem !important;
+    font-size: 0.6rem !important;
+  }
+
+  /* Background glows: reduce or hide for performance */
+  html[data-device="mobile"] .bg-radial-vignette > div[class*="absolute"][class*="blur-3xl"] {
+    display: none !important;
+  }
+
+  /* Logo container: reduce margins */
+  html[data-device="mobile"] .bg-radial-vignette > div > div[class*="mb-6"] {
+    margin-bottom: 0.75rem !important;
   }
 }
 
-/* Landscape mobile (phones in landscape like MuMuPlayer) */
-@media (max-height: 500px) and (orientation: landscape) {
-  html[data-device="mobile"] .login-card,
-  html[data-device="mobile"] [class*="rounded-2xl"][class*="backdrop-blur"] {
-    width: 60vw !important;
+/* ── Tablet (641px - 1024px) ─────────────────────────────── */
+@media (min-width: 641px) and (max-width: 1024px) {
+  html[data-device="mobile"] .bg-radial-vignette > div[class*="backdrop-blur"] {
     max-width: 480px !important;
+    padding: 1.5rem !important;
+  }
+}
+
+/* ── Landscape phones / MuMuPlayer ───────────────────────── */
+@media (max-height: 500px) and (orientation: landscape) {
+  html[data-device="mobile"] .bg-radial-vignette {
+    padding: 0.5rem 2rem !important;
+    align-items: flex-start !important;
+  }
+  html[data-device="mobile"] .bg-radial-vignette > div[class*="backdrop-blur"] {
+    max-width: 500px !important;
     padding: 1rem !important;
+  }
+  html[data-device="mobile"] .bg-radial-vignette > div > div[class*="mb-6"] {
+    margin-bottom: 0.5rem !important;
+  }
+}
+
+/* ── Player: full width on mobile ────────────────────────── */
+@media (max-width: 900px) {
+  html[data-device="mobile"] video {
+    width: 100vw !important;
+    height: 56.25vw !important;
+    max-height: 70vh;
+    object-fit: contain;
+  }
+
+  /* Channel grid: 1 col on phone, 2 on tablet */
+  html[data-device="mobile"] .channel-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+  html[data-device="mobile"] .channel-grid {
+    grid-template-columns: 1fr 1fr !important;
   }
 }
 
