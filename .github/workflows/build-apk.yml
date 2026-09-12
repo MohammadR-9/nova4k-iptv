@@ -117,7 +117,7 @@ jobs:
                       android:label="@string/title_activity_main"
                       android:theme="@style/AppTheme.NoActionBarLaunch"
                       android:launchMode="singleTask"
-                      android:screenOrientation="sensor"
+                      android:screenOrientation="user"
                       android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
@@ -158,6 +158,24 @@ jobs:
 
           @CapacitorPlugin(name = "AndroidNative")
           public class AndroidNativePlugin extends Plugin {
+              private boolean isTvDevice() {
+                  if (getActivity() == null) return false;
+                  try {
+                      android.app.UiModeManager uiModeManager = (android.app.UiModeManager) getActivity().getSystemService(android.content.Context.UI_MODE_SERVICE);
+                      if (uiModeManager != null && uiModeManager.getCurrentModeType() == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION) {
+                          return true;
+                      }
+                      android.content.pm.PackageManager pm = getActivity().getPackageManager();
+                      if (pm.hasSystemFeature("android.software.leanback")) {
+                          return true;
+                      }
+                      if (!pm.hasSystemFeature("android.hardware.touchscreen")) {
+                          return true;
+                      }
+                  } catch (Exception ignored) {}
+                  return false;
+              }
+
               @PluginMethod
               public void enterImmersiveLandscape(PluginCall call) {
                   if (getActivity() == null) { call.reject("Activity is null"); return; }
@@ -195,7 +213,11 @@ jobs:
                   if (getActivity() == null) { call.reject("Activity is null"); return; }
                   getActivity().runOnUiThread(() -> {
                       try {
-                          getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+                          if (isTvDevice()) {
+                              getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                          } else {
+                              getActivity().setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
+                          }
                           getActivity().getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -253,10 +275,32 @@ jobs:
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {
+              public boolean isTvDevice() {
+                  try {
+                      android.app.UiModeManager uiModeManager = (android.app.UiModeManager) getSystemService(UI_MODE_SERVICE);
+                      if (uiModeManager != null && uiModeManager.getCurrentModeType() == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION) {
+                          return true;
+                      }
+                      android.content.pm.PackageManager pm = getPackageManager();
+                      if (pm.hasSystemFeature("android.software.leanback")) {
+                          return true;
+                      }
+                      if (!pm.hasSystemFeature("android.hardware.touchscreen")) {
+                          return true;
+                      }
+                  } catch (Exception ignored) {}
+                  return false;
+              }
+
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   registerPlugin(AndroidNativePlugin.class);
                   super.onCreate(savedInstanceState);
+                  if (isTvDevice()) {
+                      try {
+                          setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                      } catch (Exception ignored) {}
+                  }
                   try {
                       WebView webView = this.getBridge().getWebView();
                       if (webView != null) {
@@ -310,7 +354,11 @@ jobs:
                               public void exitImmersiveLandscape() {
                                   runOnUiThread(() -> {
                                       try {
-                                          setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+                                          if (isTvDevice()) {
+                                              setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                                          } else {
+                                              setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
+                                          }
                                           getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
                                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

@@ -53,11 +53,6 @@ class SpatialNavigationManager {
       newEl.classList.add('tv-focused');
       newEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       
-      // Native input focus for physical keyboard support
-      if (newEl.tagName === 'INPUT' || newEl.tagName === 'TEXTAREA') {
-        newEl.focus();
-      }
-
       // Save in group memory if element has group
       const group = newEl.getAttribute('data-nav-group');
       if (group) {

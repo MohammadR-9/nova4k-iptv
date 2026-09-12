@@ -93,6 +93,11 @@ export const App: React.FC = () => {
       const code = e.keyCode || (e.key === 'Escape' ? 27 : 0);
       setLastRemoteKey(code);
 
+      // If ExitConfirmModal is open, let ExitConfirmModal handle all navigation and actions
+      if (isExitModalOpen) {
+        return;
+      }
+
       // Check if user is actively typing in any input, textarea or editable element
       const target = e.target as HTMLElement | null;
       const isInputFocused = Boolean(target && (
