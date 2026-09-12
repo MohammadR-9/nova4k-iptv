@@ -670,14 +670,18 @@ export class HlsProEngine implements ITvPlayerEngine {
       enableWorker: false,
       lowLatencyMode: false,
       startPosition: startPosition > 0 ? startPosition : -1,
-      backBufferLength: isVlc ? 30 : 10,
+      startLevel: -1, // Auto-select level, guided by high initial bandwidth estimate
+      abrEwmaDefaultEstimate: 8000000, // 8 Mbps initial estimate: immediately requests 1080p FHD / 4K UHD stream
+      abrBandWidthFactor: 0.95, // Aggressively lock into highest bitrate without dropping
+      abrBandWidthUpFactor: 0.8,
+      backBufferLength: isVlc ? 30 : 15,
       maxBufferLength,
       maxMaxBufferLength,
-      maxBufferSize: 30 * 1000 * 1000, // Limit memory footprint to prevent TV OOM crashes
+      maxBufferSize: 60 * 1000 * 1000, // 60MB cushion for smooth 4K HDR playback
       liveSyncDurationCount: 3,
       liveMaxLatencyDurationCount: 6,
       maxLiveSyncPlaybackRate: 1.15,
-      capLevelToPlayerSize: false,
+      capLevelToPlayerSize: false, // NEVER downscale stream resolution based on DOM preview container size!
       progressive: true,
       fragLoadingMaxRetry: isMpv ? 10 : 6,
       fragLoadingRetryDelay: 400,

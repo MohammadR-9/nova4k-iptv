@@ -34,8 +34,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [audioLang, setAudioLang] = useState<'ara' | 'eng'>(() => {
     return (localStorage.getItem('nova_audio_lang') as any) || 'ara';
   });
+  const [uiMode, setUiMode] = useState<'auto' | 'tv' | 'mobile'>(() => {
+    return (localStorage.getItem('nova_ui_mode') as any) || 'auto';
+  });
   const [isFullscreen, setIsFullscreen] = useState(FullscreenUtil.isFullscreen());
   const [customServerUrl, setCustomServerUrl] = useState(SERVER_CONFIG.DEFAULT_PORTAL_URL);
+
+  const handleUiModeChange = (mode: 'auto' | 'tv' | 'mobile') => {
+    setUiMode(mode);
+    localStorage.setItem('nova_ui_mode', mode);
+    if (mode === 'tv') {
+      document.documentElement.setAttribute('data-device', 'tv');
+    } else if (mode === 'mobile') {
+      document.documentElement.setAttribute('data-device', 'mobile');
+    } else {
+      document.documentElement.removeAttribute('data-device');
+    }
+    window.dispatchEvent(new Event('resize'));
+  };
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -123,6 +139,67 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               >
                 <Maximize2 className="w-4 h-4" />
                 <span>{isFullscreen ? 'الخروج من ملء الشاشة' : 'تفعيل ملء الشاشة الآن'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Section 0.5: Display UI Mode (Smart TV vs Mobile vs Auto) */}
+          <div className="bg-surface-elevated/70 border border-white/5 rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Monitor className="w-5 h-5 text-nova-cyan" />
+              <h3 className="text-base font-extrabold text-white">نمط واجهة العرض (Display UI Mode)</h3>
+            </div>
+            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+              اختر شكل الواجهة المناسب لجهازك (الوضع السينمائي يوفر واجهة ثلاثية الأعمدة مماثلة لـ TiviMate و Smarters Pro لأجهزة التلفاز و TV Box):
+            </p>
+
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => handleUiModeChange('auto')}
+                className={`p-3 rounded-xl border text-right transition-all cursor-pointer ${
+                  uiMode === 'auto'
+                    ? 'bg-cyan-500/20 border-accent-cyan text-white shadow-focus-glow-subtle'
+                    : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-sm">⚡ تلقائي (Auto)</span>
+                  {uiMode === 'auto' && <Check className="w-4 h-4 text-accent-cyan" />}
+                </div>
+                <span className="text-[11px] text-slate-400">كشف تلقائي حسب عتاد الجهاز واللمس</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleUiModeChange('tv')}
+                className={`p-3 rounded-xl border text-right transition-all cursor-pointer ${
+                  uiMode === 'tv'
+                    ? 'bg-cyan-500/20 border-accent-cyan text-white shadow-focus-glow-subtle'
+                    : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-sm">🖥️ سينما التلفاز (Smart TV)</span>
+                  {uiMode === 'tv' && <Check className="w-4 h-4 text-accent-cyan" />}
+                </div>
+                <span className="text-[11px] text-slate-400">واجهة ثلاثية الأعمدة للتلفاز والريموت</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleUiModeChange('mobile')}
+                className={`p-3 rounded-xl border text-right transition-all cursor-pointer ${
+                  uiMode === 'mobile'
+                    ? 'bg-cyan-500/20 border-accent-cyan text-white shadow-focus-glow-subtle'
+                    : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-sm">📱 شاشة الموبايل (Mobile)</span>
+                  {uiMode === 'mobile' && <Check className="w-4 h-4 text-accent-cyan" />}
+                </div>
+                <span className="text-[11px] text-slate-400">واجهة مصممة للمس والهواتف المحمولة</span>
               </button>
             </div>
           </div>

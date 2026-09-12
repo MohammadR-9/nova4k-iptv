@@ -209,6 +209,13 @@ jobs:
               }
 
               @PluginMethod
+              public void isTv(PluginCall call) {
+                  com.getcapacitor.JSObject ret = new com.getcapacitor.JSObject();
+                  ret.put("isTv", isTvDevice());
+                  call.resolve(ret);
+              }
+
+              @PluginMethod
               public void exitImmersiveLandscape(PluginCall call) {
                   if (getActivity() == null) { call.reject("Activity is null"); return; }
                   getActivity().runOnUiThread(() -> {
@@ -296,6 +303,14 @@ jobs:
               public void onCreate(Bundle savedInstanceState) {
                   registerPlugin(AndroidNativePlugin.class);
                   super.onCreate(savedInstanceState);
+
+                  try {
+                      getWindow().setFlags(
+                          WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                          WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+                      );
+                  } catch (Exception ignored) {}
+
                   if (isTvDevice()) {
                       try {
                           setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -304,6 +319,8 @@ jobs:
                   try {
                       WebView webView = this.getBridge().getWebView();
                       if (webView != null) {
+                          webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
                           WebSettings settings = webView.getSettings();
                           settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
                           settings.setMediaPlaybackRequiresUserGesture(false);
@@ -314,12 +331,24 @@ jobs:
                           settings.setAllowUniversalAccessFromFileURLs(true);
                           settings.setAllowFileAccessFromFileURLs(true);
                           settings.setJavaScriptCanOpenWindowsAutomatically(true);
+
                           String defaultUa = settings.getUserAgentString();
-                          if (defaultUa != null && !defaultUa.contains("VLC")) {
-                              settings.setUserAgentString(defaultUa + " VLC/3.5.4");
+                          if (isTvDevice()) {
+                              if (defaultUa != null && !defaultUa.contains("Android TV")) {
+                                  settings.setUserAgentString(defaultUa + " Android TV SmartTV LargeScreen VLC/3.5.4");
+                              }
+                          } else {
+                              if (defaultUa != null && !defaultUa.contains("VLC")) {
+                                  settings.setUserAgentString(defaultUa + " VLC/3.5.4");
+                              }
                           }
 
                           webView.addJavascriptInterface(new Object() {
+                              @JavascriptInterface
+                              public boolean isTv() {
+                                  return isTvDevice();
+                              }
+
                               @JavascriptInterface
                               public void enterImmersiveLandscape() {
                                   runOnUiThread(() -> {

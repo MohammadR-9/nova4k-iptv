@@ -264,8 +264,8 @@ export class XtreamService {
               added: s.added || '2026-01-01',
               custom_sid: null,
               tv_archive: s.tv_archive || 0,
-              // Universal Xtream Codes live stream (.ts MPEG-TS with automatic .m3u8 HLS fallback)
-              direct_source: `${baseUrl}/live/${encodeURIComponent(account.username)}/${encodeURIComponent(account.password || '')}/${s.stream_id}.ts`,
+              // Universal Xtream Codes live stream (.m3u8 HLS hardware-accelerated with automatic .ts MPEG-TS fallback)
+              direct_source: `${baseUrl}/live/${encodeURIComponent(account.username)}/${encodeURIComponent(account.password || '')}/${s.stream_id}.m3u8`,
               resolution: (s.name?.includes('4K') || s.name?.includes('UHD')) ? '4K UHD' : 'FHD',
               fps: 50,
               currentProgram: {

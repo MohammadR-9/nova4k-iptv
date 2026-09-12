@@ -4,11 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" id="vp" />
     <script>
-      // Smart TV (Tizen/webOS/LG/Android TV) → force 1920x1080 TV viewport
-      // Mobile / Browser / Android → use responsive device viewport
+      // Smart TV (Tizen/webOS/LG/Android TV/TV Box) → force 1920x1080 TV viewport
+      // Mobile / Touch devices → use responsive device viewport
       (function(){
+        try {
+          var userMode = localStorage.getItem('nova_ui_mode');
+          if (userMode === 'tv') {
+            document.documentElement.setAttribute('data-device', 'tv');
+            var vp = document.getElementById('vp');
+            if (vp) vp.content = 'width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+            return;
+          } else if (userMode === 'mobile') {
+            document.documentElement.setAttribute('data-device', 'mobile');
+            return;
+          }
+        } catch(e) {}
+
         var ua = navigator.userAgent;
         var isTV = /Tizen|SmartTV|SMART-TV|webOS|NetCast|BRAVIA|Viera|HbbTV|Android TV|GoogleTV|LargeScreen|AFTB|AFTM|AFTT/i.test(ua);
+        var hasTouch = 'ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+
+        // TV Box, STB, Smart TV, or PC without touchscreen is strictly TV
+        if (!hasTouch) {
+          isTV = true;
+        }
+
         var vp = document.getElementById('vp');
         if (isTV && vp) {
           vp.content = 'width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
