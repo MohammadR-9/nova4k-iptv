@@ -318,11 +318,13 @@ export const SeriesScreen: React.FC<SeriesScreenProps> = ({ onBackToHome, onPlay
   const currentSeason = selectedSeries?.seasons?.find(s => s.season_number === activeSeasonNum) || selectedSeries?.seasons?.[0];
 
   return (
-    <div className="relative w-screen h-screen bg-[#06080e] text-slate-100 flex flex-col overflow-hidden select-none font-sans">
+    <div className="relative w-full max-w-full h-full min-h-screen bg-[#06080e] text-slate-100 flex flex-col overflow-x-hidden overflow-y-hidden select-none font-sans touch-pan-y overscroll-x-none">
       
-      {/* Ambient Glow */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-nova-emerald/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-nova-cyan/8 rounded-full blur-[140px] pointer-events-none" />
+      {/* Ambient Glow (Strictly Clipped) */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-nova-emerald/10 rounded-full blur-[140px]" />
+        <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-nova-cyan/8 rounded-full blur-[140px]" />
+      </div>
 
       {/* =========================================================================
           1. TOP NAVIGATION & SEARCH BAR (Look4k V2 Series Header)

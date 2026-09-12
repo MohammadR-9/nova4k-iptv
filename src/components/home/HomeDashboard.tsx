@@ -113,49 +113,51 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   // 📱 DEDICATED COMPACT MOBILE HOME DASHBOARD
   if (isMobile) {
     return (
-      <div className="relative w-full h-full min-h-screen flex flex-col bg-oled overflow-y-auto select-none font-sans text-white p-3.5 pb-24">
-        {/* Background Subtle Glows */}
-        <div className="absolute -top-20 -right-20 w-72 h-72 bg-nova-cyan/15 rounded-full blur-[80px] pointer-events-none" />
-        <div className="absolute top-1/2 -left-20 w-64 h-64 bg-nova-purple/15 rounded-full blur-[80px] pointer-events-none" />
+      <div className="relative w-full max-w-full h-full min-h-screen flex flex-col bg-oled overflow-x-hidden overflow-y-auto select-none font-sans text-white p-3 sm:p-3.5 pb-24 touch-pan-y overscroll-x-none">
+        {/* Background Subtle Glows (Strictly Clipped) */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute -top-20 -right-20 w-72 h-72 bg-nova-cyan/15 rounded-full blur-[80px]" />
+          <div className="absolute top-1/2 -left-20 w-64 h-64 bg-nova-purple/15 rounded-full blur-[80px]" />
+        </div>
 
         {/* 1. Mobile Top Branding Bar */}
-        <header className="w-full flex items-center justify-between pb-2.5 border-b border-white/10 shrink-0 z-10">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-400 to-purple-600 p-0.5 shadow-md flex items-center justify-center">
+        <header className="w-full max-w-full flex items-center justify-between gap-2 pb-2.5 border-b border-white/10 shrink-0 z-10 overflow-hidden">
+          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-400 to-purple-600 p-0.5 shadow-md flex items-center justify-center shrink-0">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1 overflow-hidden">
               <div className="flex items-center gap-1.5">
-                <h1 className="text-base font-black tracking-wider text-white">
+                <h1 className="text-base font-black tracking-wider text-white shrink-0">
                   NOVA <span className="text-nova-cyan">4K</span>
                 </h1>
-                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-gradient-to-r from-purple-600 to-cyan-500 text-white font-mono">
+                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-gradient-to-r from-purple-600 to-cyan-500 text-white font-mono shrink-0">
                   ULTRA
                 </span>
               </div>
               <button
                 type="button"
                 onClick={onOpenProfiles}
-                className="text-[9px] font-bold text-emerald-400 font-mono flex items-center gap-1 hover:text-white transition-colors cursor-pointer text-right"
+                className="text-[9px] font-bold text-emerald-400 font-mono flex items-center gap-1 hover:text-white transition-colors cursor-pointer text-right max-w-full truncate"
                 title="البروفايل النشط - اضغط للتبديل"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>{account.username} • {account.daysRemaining} يوم</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span className="truncate">{account.username} • {account.daysRemaining} يوم</span>
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 shrink-0">
             {onOpenProfiles && (
               <button
                 type="button"
                 onClick={onOpenProfiles}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600/30 to-cyan-500/20 border border-nova-purple/40 hover:border-nova-cyan text-white active:scale-95 transition-all cursor-pointer shadow-sm"
+                className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-gradient-to-r from-purple-600/30 to-cyan-500/20 border border-nova-purple/40 hover:border-nova-cyan text-white active:scale-95 transition-all cursor-pointer shadow-sm shrink-0"
                 title="البروفايلات والاشتراكات المحفوظة"
               >
-                <Users className="w-3.5 h-3.5 text-nova-cyan" />
-                <span className="text-xs font-bold">البروفايلات</span>
-                <span className="px-1.5 py-0.5 rounded-full bg-nova-purple text-[9px] font-black font-mono">
+                <Users className="w-3.5 h-3.5 text-nova-cyan shrink-0" />
+                <span className="text-[11px] font-bold hidden xs:inline">البروفايلات</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-nova-purple text-[9px] font-black font-mono shrink-0">
                   {savedProfilesCount}
                 </span>
               </button>
@@ -163,7 +165,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <button
               type="button"
               onClick={onOpenDiagnostics}
-              className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-amber-400 active:scale-95 transition-all cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-amber-400 active:scale-95 transition-all cursor-pointer shrink-0"
               title="التشخيص ومحرك البث"
             >
               <Activity className="w-4 h-4" />
@@ -171,7 +173,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <button
               type="button"
               onClick={onOpenSettings}
-              className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-nova-cyan active:scale-95 transition-all cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-nova-cyan active:scale-95 transition-all cursor-pointer shrink-0"
               title="الإعدادات"
             >
               <Settings className="w-4 h-4" />
@@ -349,9 +351,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     <div className="relative w-full h-full flex flex-row bg-oled bg-radial-vignette overflow-hidden select-none font-sans text-white">
       
       {/* Background Ambient Glows (Supernova Cyan, Nebula Purple, Aurora Emerald) */}
-      <div className="absolute -top-32 -right-32 w-[650px] h-[650px] bg-nova-cyan/12 rounded-full blur-[150px] pointer-events-none" />
-      <div className="absolute top-1/3 -left-32 w-[550px] h-[550px] bg-nova-purple/14 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute -bottom-32 right-1/3 w-[500px] h-[500px] bg-nova-emerald/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-32 -right-32 w-[650px] h-[650px] bg-nova-cyan/12 rounded-full blur-[150px]" />
+        <div className="absolute top-1/3 -left-32 w-[550px] h-[550px] bg-nova-purple/14 rounded-full blur-[140px]" />
+        <div className="absolute -bottom-32 right-1/3 w-[500px] h-[500px] bg-nova-emerald/10 rounded-full blur-[140px]" />
+      </div>
 
       {/* =========================================================================
           1. LUXURY SIDE NAVIGATION DOCK (Quick Dock - Look4k V2 Signature)

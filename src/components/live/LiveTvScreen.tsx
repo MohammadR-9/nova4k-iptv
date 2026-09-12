@@ -605,7 +605,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
   }, []);
 
   return (
-    <div className="relative w-full h-full min-h-screen bg-black overflow-hidden select-none">
+    <div className="relative w-full max-w-full h-full min-h-screen bg-black overflow-x-hidden overflow-y-hidden select-none touch-pan-y overscroll-x-none">
 
       {/* Auto-Recovery Toast Notification */}
       {recoveryToast && (
@@ -619,7 +619,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
           MODE A: 📱 DEDICATED MOBILE & TABLET LAYOUT (Top Player + Channels Below)
          ========================================================================= */}
       {isMobileMode ? (
-        <div className="w-full h-full min-h-screen flex flex-col bg-[#07090e] text-white">
+        <div className="w-full max-w-full h-full min-h-screen flex flex-col bg-[#07090e] text-white overflow-x-hidden touch-pan-y overscroll-x-none">
           
           {/* 1. Mobile Header (Hidden when in fullscreen) */}
           {!isFullscreen && (

@@ -455,8 +455,8 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full min-h-screen bg-oled overflow-hidden">
-      <main className="relative w-full h-full min-h-screen overflow-hidden bg-oled select-none">
+    <div className="w-full max-w-full h-full min-h-screen bg-oled overflow-x-hidden overflow-y-hidden">
+      <main className="relative w-full max-w-full h-full min-h-screen overflow-x-hidden bg-oled select-none touch-pan-y overscroll-x-none">
       
       {/* VIRTUAL REMOTE SIMULATOR FOR PC DEV PREVIEW ONLY (Never on Mobile or Production) */}
       {!isMobile && typeof window !== 'undefined' && window.location.port === '5173' && (

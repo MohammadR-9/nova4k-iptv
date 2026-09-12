@@ -104,11 +104,13 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
   ];
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-oled overflow-hidden text-white font-sans select-none">
+    <div className="relative w-full max-w-full h-full min-h-screen flex flex-col bg-oled overflow-x-hidden overflow-y-hidden text-white font-sans select-none touch-pan-y overscroll-x-none">
 
-      {/* Background Glows */}
-      <div className="absolute -top-24 -right-24 w-[500px] h-[500px] bg-nova-gold/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute -bottom-24 -left-24 w-[400px] h-[400px] bg-nova-purple/10 rounded-full blur-[100px] pointer-events-none" />
+      {/* Background Glows (Strictly Clipped) */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-24 -right-24 w-[500px] h-[500px] bg-nova-gold/10 rounded-full blur-[120px]" />
+        <div className="absolute -bottom-24 -left-24 w-[400px] h-[400px] bg-nova-purple/10 rounded-full blur-[100px]" />
+      </div>
 
       {/* HEADER */}
       <header className="relative z-10 flex items-center gap-4 px-6 py-4 border-b border-white/10 bg-surface-elevated/80 backdrop-blur-xl shrink-0">

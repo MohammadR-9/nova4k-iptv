@@ -179,10 +179,12 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full min-h-[100dvh] flex items-center justify-center bg-radial-vignette overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 select-none">
-      {/* Background Ambient Glow */}
-      <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-accent-cyan/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent-gold/5 rounded-full blur-3xl pointer-events-none"></div>
+    <div className="relative w-full max-w-full h-full min-h-[100dvh] flex items-center justify-center bg-radial-vignette overflow-x-hidden overflow-y-auto px-4 sm:px-6 py-6 sm:py-8 select-none touch-pan-y overscroll-x-none">
+      {/* Background Ambient Glow (Strictly Clipped) */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-accent-cyan/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent-gold/5 rounded-full blur-3xl pointer-events-none"></div>
+      </div>
 
       {/* Main Login Card */}
       <div className="relative w-full max-w-[92vw] sm:max-w-xl bg-surface-primary/95 border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-10 shadow-2xl backdrop-blur-2xl flex flex-col items-center my-auto">
