@@ -38,9 +38,12 @@ class SpatialNavigationManager {
 
     // Remove focus class from old element
     if (previous) {
-      const oldEl = document.querySelector(`[data-nav-id="${previous}"]`);
+      const oldEl = document.querySelector(`[data-nav-id="${previous}"]`) as HTMLElement | null;
       if (oldEl) {
         oldEl.classList.remove('tv-focused', 'tv-focused-subtle');
+        if (oldEl.tagName === 'INPUT' || oldEl.tagName === 'TEXTAREA') {
+          oldEl.blur();
+        }
       }
     }
 
@@ -50,6 +53,11 @@ class SpatialNavigationManager {
       newEl.classList.add('tv-focused');
       newEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       
+      // Native input focus for physical keyboard support
+      if (newEl.tagName === 'INPUT' || newEl.tagName === 'TEXTAREA') {
+        newEl.focus();
+      }
+
       // Save in group memory if element has group
       const group = newEl.getAttribute('data-nav-group');
       if (group) {
@@ -188,6 +196,9 @@ class SpatialNavigationManager {
     if (!this.currentFocusedId) return;
     const currentEl = document.querySelector(`[data-nav-id="${this.currentFocusedId}"]`) as HTMLElement;
     if (currentEl) {
+      if (currentEl.tagName === 'INPUT' || currentEl.tagName === 'TEXTAREA') {
+        currentEl.focus();
+      }
       currentEl.click();
       this.playSelectSound();
     }

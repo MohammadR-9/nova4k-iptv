@@ -93,38 +93,50 @@ export const App: React.FC = () => {
       const code = e.keyCode || (e.key === 'Escape' ? 27 : 0);
       setLastRemoteKey(code);
 
-      // Dedicated Escape/Back key handler
+      // Check if user is actively typing in any input, textarea or editable element
+      const target = e.target as HTMLElement | null;
+      const isInputFocused = Boolean(target && (
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        (target as any).isContentEditable
+      ));
+
+      // If typing in an input field, handle input keys and block global shortcut hijacking
+      if (isInputFocused) {
+        // Escape blurs the input without navigating back
+        if (e.key === 'Escape' || code === TV_KEYS.ESCAPE) {
+          target?.blur();
+          return;
+        }
+
+        // Backspace: allow native character deletion
+        if (code === TV_KEYS.BACKSPACE) {
+          return;
+        }
+
+        // Horizontal arrows: allow caret cursor movement
+        if ([TV_KEYS.LEFT, TV_KEYS.RIGHT].includes(code)) {
+          return;
+        }
+
+        // Vertical arrows: allow leaving the input to navigate up/down
+        if ([TV_KEYS.UP, TV_KEYS.DOWN].includes(code)) {
+          target?.blur();
+          // proceed to spatial navigation below
+        } else {
+          // All other keys (letters A-Z, a-z, digits, symbols, space, Enter, etc.):
+          // Let native browser input receive the key — NEVER hijack shortcuts (b, g, y, i, etc.)!
+          return;
+        }
+      }
+
+      // Dedicated Escape/Back key handler (when NOT focused on an input)
       if (e.key === 'Escape' || e.key === 'Back' || e.key === 'GoBack') {
         if (currentScreen === 'vod-player' || currentScreen === 'live') {
           // Handled by dedicated screen component
           return;
         }
         handleBackPress();
-        return;
-      }
-
-      // Check if user is actively typing in any input, textarea or editable element
-      const target = e.target as HTMLElement | null;
-      const isInputFocused = target && (
-        target.tagName === 'INPUT' || 
-        target.tagName === 'TEXTAREA' || 
-        (target as any).isContentEditable
-      );
-
-      // Backspace key (code 8):
-      // User rule: "رز backspace اجعله ل حذف النص وليس الرجوع الى الوراء"
-      // Never trigger back navigation on Backspace. Allow native text deletion when focused.
-      if (code === TV_KEYS.BACKSPACE) {
-        if (isInputFocused) {
-          // Native browser input character deletion
-          return;
-        }
-        // Outside inputs, do not navigate back
-        return;
-      }
-
-      // If user is focused on an input, permit horizontal cursor movement without spatialNav hijacking
-      if (isInputFocused && [TV_KEYS.LEFT, TV_KEYS.RIGHT].includes(code)) {
         return;
       }
 

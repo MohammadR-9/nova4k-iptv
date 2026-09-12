@@ -11,6 +11,12 @@
     -webkit-user-select: none;
   }
 
+  input,
+  textarea {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+
   html,
   body {
     background-color: #000000;

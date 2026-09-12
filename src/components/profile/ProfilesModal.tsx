@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, Plus, Trash2, Edit3, Check, X, 
-  Play, ShieldCheck, Key, Globe, Calendar, AlertTriangle, Loader2 
+  Play, ShieldCheck, Key, Globe, Calendar, AlertTriangle, Loader2, Keyboard 
 } from 'lucide-react';
 import { UserAccount, UserProfile } from '../../types/iptv.types';
 import { ProfileService } from '../../services/profile.service';
 import { ActivationService } from '../../services/activation.service';
 import { SERVER_CONFIG } from '../../config/server.config';
+import { VirtualKeyboardModal } from '../common/VirtualKeyboardModal';
 
 interface ProfilesModalProps {
   isOpen: boolean;
@@ -42,6 +43,36 @@ export const ProfilesModal: React.FC<ProfilesModalProps> = ({
 
   // Delete confirm state
   const [profileToDelete, setProfileToDelete] = useState<UserProfile | null>(null);
+
+  // Virtual Keyboard state
+  const [activeKeyboardField, setActiveKeyboardField] = useState<{
+    id: 'name' | 'server' | 'code' | 'user' | 'pass' | 'rename';
+    title: string;
+    placeholder: string;
+    isPassword?: boolean;
+    initialValue: string;
+  } | null>(null);
+
+  const openVirtualKeyboard = (
+    fieldId: 'name' | 'server' | 'code' | 'user' | 'pass' | 'rename',
+    title: string,
+    placeholder: string,
+    initialValue: string,
+    isPassword = false
+  ) => {
+    setActiveKeyboardField({ id: fieldId, title, placeholder, initialValue, isPassword });
+  };
+
+  const handleKeyboardSubmit = (val: string) => {
+    if (!activeKeyboardField) return;
+    if (activeKeyboardField.id === 'name') setNewProfileName(val);
+    else if (activeKeyboardField.id === 'server') setNewServerUrl(val);
+    else if (activeKeyboardField.id === 'code') setNewCode(val);
+    else if (activeKeyboardField.id === 'user') setNewUsername(val);
+    else if (activeKeyboardField.id === 'pass') setNewPassword(val);
+    else if (activeKeyboardField.id === 'rename') setEditingName(val);
+    setActiveKeyboardField(null);
+  };
 
   // Load profiles on mount or when opened
   const reloadProfiles = () => {
@@ -446,13 +477,24 @@ export const ProfilesModal: React.FC<ProfilesModalProps> = ({
               <label className="block text-[11px] font-bold text-slate-300 mb-1">
                 اسم البروفايل (اختياري لتسهيل تمييزه):
               </label>
-              <input
-                type="text"
-                placeholder="مثال: اشتراك المجلس، Look4k VIP"
-                value={newProfileName}
-                onChange={(e) => setNewProfileName(e.target.value)}
-                className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-nova-cyan"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="مثال: اشتراك المجلس، Look4k VIP"
+                  value={newProfileName}
+                  onChange={(e) => setNewProfileName(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-nova-cyan"
+                />
+                <button
+                  type="button"
+                  onClick={() => openVirtualKeyboard('name', 'اسم البروفايل', 'مثال: اشتراك المجلس', newProfileName, false)}
+                  className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-nova-cyan/20 border border-white/15 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shrink-0"
+                  title="لوحة المفاتيح"
+                >
+                  <Keyboard className="w-3.5 h-3.5 text-nova-cyan" />
+                  <span>كيبورد</span>
+                </button>
+              </div>
             </div>
 
             {/* Server Portal URL */}
@@ -460,13 +502,24 @@ export const ProfilesModal: React.FC<ProfilesModalProps> = ({
               <label className="block text-[11px] font-bold text-slate-300 mb-1">
                 رابط سيرفر البث (Portal URL):
               </label>
-              <input
-                type="text"
-                value={newServerUrl}
-                onChange={(e) => setNewServerUrl(e.target.value)}
-                className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-nova-cyan"
-                placeholder="http://look.5g.in:8080"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newServerUrl}
+                  onChange={(e) => setNewServerUrl(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-nova-cyan"
+                  placeholder="http://look.5g.in:8080"
+                />
+                <button
+                  type="button"
+                  onClick={() => openVirtualKeyboard('server', 'رابط السيرفر (Portal URL)', 'http://...', newServerUrl, false)}
+                  className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-nova-cyan/20 border border-white/15 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shrink-0"
+                  title="لوحة المفاتيح"
+                >
+                  <Keyboard className="w-3.5 h-3.5 text-nova-cyan" />
+                  <span>كيبورد</span>
+                </button>
+              </div>
             </div>
 
             {/* Code Inputs */}
@@ -475,14 +528,25 @@ export const ProfilesModal: React.FC<ProfilesModalProps> = ({
                 <label className="block text-[11px] font-bold text-slate-300 mb-1">
                   كود التفعيل:
                 </label>
-                <input
-                  type="text"
-                  placeholder="أدخل كود التفعيل المكون من أرقام وحروف"
-                  value={newCode}
-                  onChange={(e) => setNewCode(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-black/40 border border-white/15 rounded-xl text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-nova-cyan"
-                  autoFocus
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="أدخل كود التفعيل المكون من أرقام وحروف"
+                    value={newCode}
+                    onChange={(e) => setNewCode(e.target.value)}
+                    className="flex-1 px-3 py-2.5 bg-black/40 border border-white/15 rounded-xl text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-nova-cyan"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => openVirtualKeyboard('code', 'كود التفعيل', 'كود التفعيل', newCode, false)}
+                    className="px-2.5 py-2 rounded-xl bg-white/10 hover:bg-nova-cyan/20 border border-white/15 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shrink-0"
+                    title="لوحة المفاتيح"
+                  >
+                    <Keyboard className="w-3.5 h-3.5 text-nova-cyan" />
+                    <span>كيبورد</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -490,25 +554,45 @@ export const ProfilesModal: React.FC<ProfilesModalProps> = ({
                   <label className="block text-[11px] font-bold text-slate-300 mb-1">
                     اسم المستخدم:
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Username"
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
-                    className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-nova-cyan"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Username"
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      className="flex-1 px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-nova-cyan"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => openVirtualKeyboard('user', 'اسم المستخدم', 'Username', newUsername, false)}
+                      className="p-2 rounded-xl bg-white/10 hover:bg-nova-cyan/20 border border-white/15 text-slate-300 hover:text-white transition-all cursor-pointer shrink-0"
+                      title="لوحة المفاتيح"
+                    >
+                      <Keyboard className="w-3.5 h-3.5 text-nova-cyan" />
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-slate-300 mb-1">
                     كلمة المرور:
                   </label>
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-nova-cyan"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="flex-1 px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-nova-cyan"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => openVirtualKeyboard('pass', 'كلمة المرور', '••••••••', newPassword, true)}
+                      className="p-2 rounded-xl bg-white/10 hover:bg-nova-cyan/20 border border-white/15 text-slate-300 hover:text-white transition-all cursor-pointer shrink-0"
+                      title="لوحة المفاتيح"
+                    >
+                      <Keyboard className="w-3.5 h-3.5 text-nova-cyan" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -585,6 +669,19 @@ export const ProfilesModal: React.FC<ProfilesModalProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Virtual Keyboard Modal */}
+      {activeKeyboardField && (
+        <VirtualKeyboardModal
+          isOpen={Boolean(activeKeyboardField)}
+          title={activeKeyboardField.title}
+          placeholder={activeKeyboardField.placeholder}
+          initialValue={activeKeyboardField.initialValue}
+          isPassword={activeKeyboardField.isPassword}
+          onSubmit={handleKeyboardSubmit}
+          onClose={() => setActiveKeyboardField(null)}
+        />
       )}
 
     </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   KeyRound, User, Lock, Sparkles, ShieldCheck, 
   AlertCircle, Wrench, Globe, ChevronDown, ChevronUp,
-  Users, Trash2, Play, Plus, Shield, Edit3, Check, X
+  Users, Trash2, Play, Plus, Shield, Edit3, Check, X, Keyboard
 } from 'lucide-react';
 import { ActivationService } from '../../services/activation.service';
 import { XtreamService } from '../../services/xtream.service';
@@ -11,6 +11,7 @@ import { SERVER_CONFIG } from '../../config/server.config';
 import { spatialNav } from '../../navigation/spatialNav';
 import { UrlHistoryService, SavedServer } from '../../services/urlHistory.service';
 import { ProfileService } from '../../services/profile.service';
+import { VirtualKeyboardModal } from '../common/VirtualKeyboardModal';
 
 interface ActivationLoginProps {
   onLoginSuccess: (account: UserAccount) => void;
@@ -42,6 +43,46 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
     const hist = UrlHistoryService.getHistory();
     return hist[0]?.url || SERVER_CONFIG.getMasterDns();
   });
+
+  // On-Screen Virtual Keyboard State
+  const [activeKeyboardField, setActiveKeyboardField] = useState<{
+    id: 'code' | 'username' | 'password' | 'serverUrl';
+    title: string;
+    placeholder: string;
+    isPassword?: boolean;
+    initialValue: string;
+  } | null>(null);
+
+  const openVirtualKeyboard = (
+    fieldId: 'code' | 'username' | 'password' | 'serverUrl',
+    fieldTitle: string,
+    placeholder: string,
+    initialVal: string,
+    isPwd = false
+  ) => {
+    setActiveKeyboardField({
+      id: fieldId,
+      title: fieldTitle,
+      placeholder,
+      initialValue: initialVal,
+      isPassword: isPwd
+    });
+  };
+
+  const handleKeyboardSubmit = (val: string) => {
+    if (!activeKeyboardField) return;
+    if (activeKeyboardField.id === 'code') {
+      setCode(val);
+    } else if (activeKeyboardField.id === 'username') {
+      setUsername(val);
+    } else if (activeKeyboardField.id === 'password') {
+      setPassword(val);
+    } else if (activeKeyboardField.id === 'serverUrl') {
+      setServerUrl(val);
+    }
+    setErrorMsg(null);
+    setActiveKeyboardField(null);
+  };
   
   const [showAdvancedServer, setShowAdvancedServer] = useState(false);
 
@@ -524,16 +565,33 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
               <label className="block text-xs md:text-sm font-semibold text-slate-300 mb-2 text-right">
                 أدخل كود التفعيل المعتمد لاشتراكك:
               </label>
-              <div className="relative">
-                <input
-                  data-nav-id="input-code"
-                  type="text"
-                  value={code}
-                  onChange={(e) => { setCode(e.target.value); setErrorMsg(null); }}
-                  placeholder="مثال: 882419"
-                  className="tv-focusable w-full h-14 md:h-16 bg-surface-elevated/90 border-2 border-white/10 rounded-2xl px-6 text-center text-2xl md:text-3xl font-mono tracking-widest text-accent-cyan placeholder:text-slate-600 focus:outline-none focus:border-accent-cyan"
-                />
-                <KeyRound className="absolute right-4 top-4 md:top-5 w-5 h-5 text-slate-500" />
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    data-nav-id="input-code"
+                    type="text"
+                    value={code}
+                    onChange={(e) => { setCode(e.target.value); setErrorMsg(null); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        openVirtualKeyboard('code', 'كود التفعيل (Activation Code)', 'مثال: 882419', code, false);
+                      }
+                    }}
+                    placeholder="مثال: 882419"
+                    className="tv-focusable w-full h-14 md:h-16 bg-surface-elevated/90 border-2 border-white/10 rounded-2xl px-6 text-center text-2xl md:text-3xl font-mono tracking-widest text-accent-cyan placeholder:text-slate-600 focus:outline-none focus:border-accent-cyan"
+                  />
+                  <KeyRound className="absolute right-4 top-4 md:top-5 w-5 h-5 text-slate-500" />
+                </div>
+                <button
+                  data-nav-id="btn-vk-code"
+                  type="button"
+                  onClick={() => openVirtualKeyboard('code', 'كود التفعيل (Activation Code)', 'مثال: 882419', code, false)}
+                  className="tv-focusable h-14 md:h-16 px-3.5 sm:px-4 rounded-2xl bg-gradient-to-r from-purple-600/30 to-cyan-500/20 hover:from-purple-600/40 hover:to-cyan-500/30 border border-nova-purple/40 hover:border-nova-cyan text-white active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-1 shrink-0 shadow-sm"
+                  title="فتح لوحة المفاتيح الداخلية للشاشة"
+                >
+                  <Keyboard className="w-5 h-5 text-nova-cyan" />
+                  <span className="text-[10px] font-bold">كيبورد</span>
+                </button>
               </div>
               <p className="text-[11px] text-slate-500 mt-2 text-right leading-relaxed">
                 * يتم التحقق الصارم من الكود، ولن يقبل النظام أي أرقام عشوائية غير مفعلة.
@@ -557,14 +615,31 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
                 {showAdvancedServer && (
                   <div className="mt-2 p-3 rounded-2xl bg-white/5 border border-white/10">
                     <label className="block text-xs font-semibold text-slate-300 mb-1 text-right">عنوان خادم IPTV (Server URL):</label>
-                    <input
-                      data-nav-id="input-server-url-code"
-                      type="text"
-                      value={serverUrl}
-                      onChange={(e) => setServerUrl(e.target.value)}
-                      placeholder="http://my-iptv-server.com:8080"
-                      className="tv-focusable w-full h-11 bg-black/50 border border-white/10 rounded-xl px-4 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:border-accent-cyan"
-                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        data-nav-id="input-server-url-code"
+                        type="text"
+                        value={serverUrl}
+                        onChange={(e) => setServerUrl(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            openVirtualKeyboard('serverUrl', 'رابط خادم IPTV (Server URL)', 'http://...', serverUrl, false);
+                          }
+                        }}
+                        placeholder="http://my-iptv-server.com:8080"
+                        className="tv-focusable flex-1 h-11 bg-black/50 border border-white/10 rounded-xl px-4 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:border-accent-cyan"
+                      />
+                      <button
+                        data-nav-id="btn-vk-server-code"
+                        type="button"
+                        onClick={() => openVirtualKeyboard('serverUrl', 'رابط خادم IPTV (Server URL)', 'http://...', serverUrl, false)}
+                        className="tv-focusable h-11 px-3 rounded-xl bg-white/10 hover:bg-nova-cyan/20 border border-white/15 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                        title="فتح لوحة المفاتيح الداخلية"
+                      >
+                        <Keyboard className="w-4 h-4 text-nova-cyan" />
+                        <span>كيبورد</span>
+                      </button>
+                    </div>
 
                     {/* Saved Servers Pills */}
                     <div className="mt-2.5 pt-2 border-t border-white/5">
@@ -620,31 +695,65 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
           <div className="w-full flex flex-col gap-3.5">
             <div>
               <label className="block text-xs md:text-sm font-semibold text-slate-300 mb-1 text-right">اسم المستخدم (Username)</label>
-              <div className="relative">
-                <input
-                  data-nav-id="input-user"
-                  type="text"
-                  value={username}
-                  onChange={(e) => { setUsername(e.target.value); setErrorMsg(null); }}
-                  placeholder="Username"
-                  className="tv-focusable w-full h-12 md:h-13 bg-surface-elevated border-2 border-white/10 rounded-2xl px-5 text-sm md:text-base font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-accent-cyan text-right"
-                />
-                <User className="absolute left-4 top-3.5 w-4 h-4 md:w-5 md:h-5 text-slate-500" />
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    data-nav-id="input-user"
+                    type="text"
+                    value={username}
+                    onChange={(e) => { setUsername(e.target.value); setErrorMsg(null); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        openVirtualKeyboard('username', 'اسم المستخدم (Username)', 'Username', username, false);
+                      }
+                    }}
+                    placeholder="Username"
+                    className="tv-focusable w-full h-12 md:h-13 bg-surface-elevated border-2 border-white/10 rounded-2xl px-5 text-sm md:text-base font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-accent-cyan text-right"
+                  />
+                  <User className="absolute left-4 top-3.5 w-4 h-4 md:w-5 md:h-5 text-slate-500" />
+                </div>
+                <button
+                  data-nav-id="btn-vk-user"
+                  type="button"
+                  onClick={() => openVirtualKeyboard('username', 'اسم المستخدم (Username)', 'Username', username, false)}
+                  className="tv-focusable h-12 md:h-13 px-3.5 sm:px-4 rounded-2xl bg-gradient-to-r from-purple-600/30 to-cyan-500/20 hover:from-purple-600/40 hover:to-cyan-500/30 border border-nova-purple/40 hover:border-nova-cyan text-white active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-1 shrink-0 shadow-sm"
+                  title="فتح لوحة المفاتيح الداخلية للشاشة"
+                >
+                  <Keyboard className="w-4 h-4 text-nova-cyan" />
+                  <span className="text-[10px] font-bold">كيبورد</span>
+                </button>
               </div>
             </div>
 
             <div>
               <label className="block text-xs md:text-sm font-semibold text-slate-300 mb-1 text-right">كلمة المرور (Password)</label>
-              <div className="relative">
-                <input
-                  data-nav-id="input-pass"
-                  type="password"
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setErrorMsg(null); }}
-                  placeholder="••••••••"
-                  className="tv-focusable w-full h-12 md:h-13 bg-surface-elevated border-2 border-white/10 rounded-2xl px-5 text-sm md:text-base font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-accent-cyan text-right"
-                />
-                <Lock className="absolute left-4 top-3.5 w-4 h-4 md:w-5 md:h-5 text-slate-500" />
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    data-nav-id="input-pass"
+                    type="password"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setErrorMsg(null); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        openVirtualKeyboard('password', 'كلمة المرور (Password)', '••••••••', password, true);
+                      }
+                    }}
+                    placeholder="••••••••"
+                    className="tv-focusable w-full h-12 md:h-13 bg-surface-elevated border-2 border-white/10 rounded-2xl px-5 text-sm md:text-base font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-accent-cyan text-right"
+                  />
+                  <Lock className="absolute left-4 top-3.5 w-4 h-4 md:w-5 md:h-5 text-slate-500" />
+                </div>
+                <button
+                  data-nav-id="btn-vk-pass"
+                  type="button"
+                  onClick={() => openVirtualKeyboard('password', 'كلمة المرور (Password)', '••••••••', password, true)}
+                  className="tv-focusable h-12 md:h-13 px-3.5 sm:px-4 rounded-2xl bg-gradient-to-r from-purple-600/30 to-cyan-500/20 hover:from-purple-600/40 hover:to-cyan-500/30 border border-nova-purple/40 hover:border-nova-cyan text-white active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-1 shrink-0 shadow-sm"
+                  title="فتح لوحة المفاتيح الداخلية للشاشة"
+                >
+                  <Keyboard className="w-4 h-4 text-nova-cyan" />
+                  <span className="text-[10px] font-bold">كيبورد</span>
+                </button>
               </div>
             </div>
 
@@ -665,14 +774,31 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
                 {showAdvancedServer && (
                   <div className="mt-2 p-3 rounded-2xl bg-white/5 border border-white/10">
                     <label className="block text-xs font-semibold text-slate-300 mb-1 text-right">عنوان خادم Xtream (Portal URL):</label>
-                    <input
-                      data-nav-id="input-server-url-creds"
-                      type="text"
-                      value={serverUrl}
-                      onChange={(e) => setServerUrl(e.target.value)}
-                      placeholder="http://my-iptv-server.com:8080"
-                      className="tv-focusable w-full h-11 bg-black/50 border border-white/10 rounded-xl px-4 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:border-accent-cyan text-left"
-                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        data-nav-id="input-server-url-creds"
+                        type="text"
+                        value={serverUrl}
+                        onChange={(e) => setServerUrl(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            openVirtualKeyboard('serverUrl', 'رابط خادم Xtream (Portal URL)', 'http://...', serverUrl, false);
+                          }
+                        }}
+                        placeholder="http://my-iptv-server.com:8080"
+                        className="tv-focusable flex-1 h-11 bg-black/50 border border-white/10 rounded-xl px-4 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:border-accent-cyan text-left"
+                      />
+                      <button
+                        data-nav-id="btn-vk-server-creds"
+                        type="button"
+                        onClick={() => openVirtualKeyboard('serverUrl', 'رابط خادم Xtream (Portal URL)', 'http://...', serverUrl, false)}
+                        className="tv-focusable h-11 px-3 rounded-xl bg-white/10 hover:bg-nova-cyan/20 border border-white/15 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                        title="فتح لوحة المفاتيح الداخلية"
+                      >
+                        <Keyboard className="w-4 h-4 text-nova-cyan" />
+                        <span>كيبورد</span>
+                      </button>
+                    </div>
 
                     {/* Saved Servers Pills */}
                     <div className="mt-2.5 pt-2 border-t border-white/5">
@@ -763,6 +889,19 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ON-SCREEN VIRTUAL KEYBOARD MODAL */}
+      {activeKeyboardField && (
+        <VirtualKeyboardModal
+          isOpen={Boolean(activeKeyboardField)}
+          title={activeKeyboardField.title}
+          placeholder={activeKeyboardField.placeholder}
+          initialValue={activeKeyboardField.initialValue}
+          isPassword={activeKeyboardField.isPassword}
+          onSubmit={handleKeyboardSubmit}
+          onClose={() => setActiveKeyboardField(null)}
+        />
       )}
     </div>
   );

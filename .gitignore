@@ -38,6 +38,10 @@ Thumbs.db
 
 # Electron build
 release/
+
+# Scratch
+scratch/
+
 out/
 
 # Logs
