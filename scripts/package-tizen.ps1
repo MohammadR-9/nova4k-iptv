@@ -26,19 +26,29 @@ if (Test-Path "icon.png") {
 
 # 3. Create .wgt Package
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
-$WgtFile = Join-Path $OutputDir "TizenIPTVPro.wgt"
+$WgtFile = Join-Path $OutputDir "NOVA_4K_ULTRA.wgt"
 
 if (Get-Command "tizen" -ErrorAction SilentlyContinue) {
     Write-Host "[3/3] Found Tizen CLI. Packaging with official Tizen tools..." -ForegroundColor Green
     tizen package -t wgt -s DefaultSecurityProfile -- "dist"
 } else {
     Write-Host "[3/3] Packaging as standard Tizen .wgt archive..." -ForegroundColor Green
-    $ZipFile = Join-Path $OutputDir "TizenIPTVPro.zip"
+    $ZipFile = Join-Path $OutputDir "NOVA_4K_ULTRA.zip"
     if (Test-Path $ZipFile) { Remove-Item $ZipFile -Force }
     if (Test-Path $WgtFile) { Remove-Item $WgtFile -Force }
     Compress-Archive -Path "dist/*" -DestinationPath $ZipFile -Force
-    Rename-Item -Path $ZipFile -NewName "TizenIPTVPro.wgt" -Force
+    Rename-Item -Path $ZipFile -NewName "NOVA_4K_ULTRA.wgt" -Force
 }
 
-Write-Host "Package created successfully at: $WgtFile" -ForegroundColor Green
-Write-Host "Ready for deployment via Tizen Studio or SDB (sdb install $WgtFile)" -ForegroundColor Cyan
+if (Test-Path $WgtFile) {
+    Copy-Item -Path $WgtFile -Destination "..\NOVA_4K_ULTRA.wgt" -Force
+    Copy-Item -Path $WgtFile -Destination (Join-Path $OutputDir "TizenIPTVPro.wgt") -Force
+    $wgtItem = Get-Item $WgtFile
+    Write-Host "=========================================" -ForegroundColor Green
+    Write-Host "Samsung Tizen .wgt Package Created Successfully!" -ForegroundColor Green
+    Write-Host "Location 1: $WgtFile" -ForegroundColor Cyan
+    Write-Host "Location 2: ..\NOVA_4K_ULTRA.wgt" -ForegroundColor Cyan
+    Write-Host "Size: $([math]::Round($wgtItem.Length / 1MB, 2)) MB" -ForegroundColor Cyan
+    Write-Host "Ready for deployment via Tizen Studio, USB, or SDB" -ForegroundColor Green
+    Write-Host "=========================================" -ForegroundColor Green
+}
