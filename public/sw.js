@@ -1,11 +1,13 @@
 // Service Worker for NOVA 4K ULTRA PWA
 // Enables offline caching and PWABuilder compatibility
 
-const CACHE_NAME = 'nova4k-v3.0.0';
+const CACHE_NAME = 'nova4k-v3.0.1';
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {

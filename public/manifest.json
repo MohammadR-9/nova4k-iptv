@@ -51,14 +51,14 @@
   "screenshots": [
     {
       "src": "./screenshots/screenshot-desktop.png",
-      "sizes": "1280x720",
+      "sizes": "1376x768",
       "type": "image/png",
       "form_factor": "wide",
       "label": "NOVA 4K Smart TV & Desktop View"
     },
     {
       "src": "./screenshots/screenshot-mobile.png",
-      "sizes": "1280x720",
+      "sizes": "1376x768",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "NOVA 4K Mobile & Tablet View"
