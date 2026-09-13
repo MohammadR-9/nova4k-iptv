@@ -1,13 +1,13 @@
 {
-  "id": "com.nova4k.ultra.iptv",
+  "id": "com.nova.ultra.webos",
   "version": "3.0.0",
   "vendor": "NOVA 4K ULTRA",
   "type": "web",
   "main": "index.html",
   "title": "NOVA 4K ULTRA",
-  "icon": "icon.png",
-  "largeIcon": "largeIcon.png",
-  "bgImage": "splash.png",
+  "icon": "icons/webos-80.png",
+  "largeIcon": "icons/webos-130.png",
+  "bgImage": "icons/splash-1920x1080.png",
   "resolution": "1920x1080",
   "supportMouse": true,
   "transparent": false,
@@ -16,6 +16,7 @@
   "requiredPermissions": [
     "media.storage",
     "audio.output",
-    "system.operation"
+    "system.operation",
+    "networking"
   ]
 }
