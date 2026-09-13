@@ -8,7 +8,7 @@ export class UrlHistoryService {
   private static STORAGE_KEY = 'nova_server_history_urls';
 
   private static DEFAULT_PRESETS: SavedServer[] = [
-    { url: 'http://look.5g.in:8080', name: 'Look 5G Official', lastUsed: Date.now() },
+    { url: 'http://look.5g.in', name: 'Look 5G Official', lastUsed: Date.now() },
     { url: 'http://look4k.net:8080', name: 'Look 4K Portal', lastUsed: Date.now() - 1000 }
   ];
 

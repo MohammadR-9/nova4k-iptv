@@ -46,6 +46,13 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [dismissedPwaTip, setDismissedPwaTip] = useState(() => {
+    try {
+      return localStorage.getItem('nova_dismissed_pwa_tip') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // On-Screen Virtual Keyboard State
   const [activeKeyboardField, setActiveKeyboardField] = useState<{
@@ -465,6 +472,30 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
                 <span>اسم المستخدم</span>
               </button>
             </div>
+
+            {/* HTTPS / PWA Insecure Content Guide */}
+            {typeof window !== 'undefined' && window.location.protocol === 'https:' && !dismissedPwaTip && (
+              <div className="w-full flex items-start justify-between gap-2.5 p-3 mb-4 bg-cyan-950/40 border border-cyan-500/30 rounded-2xl text-cyan-200 text-xs">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                  <div className="text-right leading-relaxed">
+                    <span className="font-bold block text-white text-[11px]">مستخدمي نسخة المتصفح (PWA):</span>
+                    <span>سيرفرات IPTV تعمل بنظام HTTP. إذا واجهت رسالة Failed to fetch، اضغط على أيقونة القفل 🔒 بجانب الرابط ⬅️ إعدادات الموقع (Site settings) ⬅️ واسمح بـ <strong>المحتوى غير الآمن (Insecure content)</strong>.</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('nova_dismissed_pwa_tip', 'true');
+                    setDismissedPwaTip(true);
+                  }}
+                  className="text-cyan-400 hover:text-white p-1 cursor-pointer"
+                  title="إغلاق"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             {/* Error Notification Banner */}
             {errorMsg && (

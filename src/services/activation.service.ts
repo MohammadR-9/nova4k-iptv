@@ -223,6 +223,13 @@ export class ActivationService {
     }
 
     const cleanHost = host.replace(/^https?:\/\//, '');
+    const isHttpsWithHttp = typeof window !== 'undefined' && window.location.protocol === 'https:' && host.startsWith('http:');
+    if (isHttpsWithHttp && (liveErrorReason?.includes('Failed to fetch') || liveErrorReason?.includes('NetworkError'))) {
+      throw new Error(
+        `المتصفح حظر الاتصال بسيرفر (${cleanHost}) لأن صفحة PWA تعمل عبر HTTPS المشفر وسيرفر البث يعمل عبر HTTP (حظر المحتوى المختلط Mixed Content). للحل في ثانيتين: اضغط على أيقونة القفل 🔒 أو خيارات الموقع بجانب الرابط ⬅️ إعدادات الموقع (Site settings) ⬅️ اضبط "المحتوى غير الآمن" (Insecure content) على "سماح" (Allow) ⬅️ ثم أعد تحميل الصفحة.`
+      );
+    }
+
     const reasonMsg = liveErrorReason ? ` (${liveErrorReason})` : '';
     throw new Error(
       `بيانات الدخول غير صحيحة على سيرفر (${cleanHost})${reasonMsg}. يرجى التأكد من البيانات أو استخدام حساب التجربة (vip_user / pass7788).`
