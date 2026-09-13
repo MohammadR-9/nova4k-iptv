@@ -71,36 +71,36 @@ export const SERVER_CONFIG = {
     },
     {
       id: 102,
-      name: 'MBC 1 HD (Test Stream)',
-      category: 'General Entertainment',
+      name: 'العربية الحدث HD (Live News)',
+      category: 'News',
       logo: 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=120&h=120&fit=crop',
-      url: 'https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8',
+      url: 'https://live.alarabiya.net/alarabiapublish/alhadath.smil/playlist.m3u8',
       resolution: 'FHD' as const,
       fps: 60,
-      currentShow: 'برنامج المساء الإخباري والمنوعات',
-      nextShow: 'المسلسل العربي: صدى الذكريات'
+      currentShow: 'متابعة الأخبار والتقارير الميدانية المباشرة',
+      nextShow: 'الحصاد الإخباري والتحليلات السياسية'
     },
     {
       id: 103,
-      name: 'National Geographic 4K UHD (HEVC Demo)',
-      category: 'Documentary',
+      name: 'TRT عربي الإخبارية HD',
+      category: 'News',
       logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=120&h=120&fit=crop',
-      url: 'https://bitmovin-a.akamaihd.net/content/MI201109210084_1/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8',
-      resolution: '4K UHD' as const,
-      fps: 60,
-      currentShow: 'أسرار الحياة البرية في أفريقيا (4K)',
-      nextShow: 'عالم المحيطات والأعماق المجهولة'
+      url: 'https://tv-trtarabi.medya.trt.com.tr/master.m3u8',
+      resolution: 'FHD' as const,
+      fps: 50,
+      currentShow: 'نشرات إخبارية وتقارير استقصائية',
+      nextShow: 'نافذة على العالم والسياسة الدولية'
     },
     {
       id: 104,
-      name: 'OSN Movies Premiere HD',
+      name: 'OSN Movies Premiere 4K (Tears of Steel)',
       category: 'Cinema & VOD',
       logo: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=120&h=120&fit=crop',
-      url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      url: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
       resolution: 'FHD' as const,
       fps: 24,
-      currentShow: 'فيلم السهرة: مغامرة في الفضاء المجهول',
-      nextShow: 'كواليس صناعة الأفلام العالمية'
+      currentShow: 'فيلم السهرة: دموع الفولاذ (Tears of Steel)',
+      nextShow: 'كواليس وتأثيرات السينما العالمية'
     },
     {
       id: 105,

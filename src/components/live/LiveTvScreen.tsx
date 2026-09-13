@@ -3,7 +3,7 @@ import {
   Tv, Star, Maximize2, Minimize2,
   Volume2, VolumeX, ShieldCheck, ArrowLeft, Search, X,
   Layers, Camera, Video, Settings2, Subtitles,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, AlertCircle, RefreshCw
 } from 'lucide-react';
 import { LiveCategory, LiveChannel } from '../../types/iptv.types';
 import { XtreamService } from '../../services/xtream.service';
@@ -74,6 +74,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
   // UI Visibility States
   const [isBuffering, setIsBuffering] = useState(false);
   const bufferingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [streamError, setStreamError] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState<number>(40);
   const [isCategoryLoading, setIsCategoryLoading] = useState<boolean>(false);
 
@@ -206,8 +207,6 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
         if (isMounted) {
           if (reorderedCats.length > 0) {
             setCategories(reorderedCats);
-            // Background prefetch prominent categories so user clicks are instant 0ms!
-            XtreamService.prefetchLiveCategories(reorderedCats.map(c => c.category_id));
           }
           if (reorderedChs.length > 0) {
             setAllChannels(reorderedChs);
@@ -235,6 +234,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
       player.current.setBufferProfile(bufferProfile);
       player.current.initialize(videoContainerRef.current, {
         onPlaying: () => {
+          setStreamError(null);
           if (bufferingDebounceRef.current) {
             clearTimeout(bufferingDebounceRef.current);
             bufferingDebounceRef.current = null;
@@ -264,7 +264,11 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
             setIsBuffering(false);
           }
         },
-        onError: (err) => console.error('[LiveTvScreen] Player error:', err),
+        onError: (err) => {
+          console.error('[LiveTvScreen] Player error:', err);
+          setStreamError(err || 'تعذر تشغيل البث المباشر');
+          setIsBuffering(false);
+        },
         onAudioTracksUpdated: (tracks) => setAudioTracks(tracks),
         onSubtitleTracksUpdated: (tracks) => setSubtitleTracks(tracks),
         onSubtitleCue: (cue) => setSubtitleCueText(cue ? cue.text : null),
@@ -278,12 +282,6 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
         }
       });
 
-      // Load active channel immediately into the initialized container
-      if (activeChannel) {
-        const streamType = activeChannel.direct_source.includes('.m3u8') ? 'HLS' : activeChannel.direct_source.includes('.ts') ? 'MPEG-TS' : 'HLS';
-        PlayerManager.cacheStreamInfo(activeChannel.direct_source, streamType);
-        player.current.loadStream(activeChannel.direct_source, streamType);
-      }
       // Auto-hide unmute prompt whenever video becomes unmuted
       const vid = player.current.getVideoElement();
       const onVolumeChange = () => {
@@ -313,6 +311,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
   const channelDebounceTimer = useRef<any>(null);
   useEffect(() => {
     if (activeChannel) {
+      setStreamError(null);
       if (tvIsFullscreen) {
         showTvOsd();
       }
@@ -334,6 +333,15 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
       }
     };
   }, [activeChannel, tvIsFullscreen, showTvOsd]);
+
+  const handleRetryStream = useCallback(() => {
+    if (!activeChannel) return;
+    setStreamError(null);
+    setIsBuffering(true);
+    const streamType = activeChannel.direct_source.includes('.m3u8') ? 'HLS' : activeChannel.direct_source.includes('.ts') ? 'MPEG-TS' : 'HLS';
+    PlayerManager.cacheStreamInfo(activeChannel.direct_source, streamType);
+    player.current.loadStream(activeChannel.direct_source, streamType);
+  }, [activeChannel]);
 
   const handleUnmute = () => {
     const vid = player.current.getVideoElement();
@@ -901,6 +909,28 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                 <span className="text-[10px] font-bold text-cyan-300 mt-1.5 font-mono">
                   جاري تجهيز البث...
                 </span>
+              </div>
+            )}
+
+            {/* Stream Error Notification Overlay */}
+            {streamError && (
+              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/90 backdrop-blur-md p-4 text-center select-none animate-in fade-in duration-150">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mb-2">
+                  <AlertCircle className="w-5 h-5 text-rose-400" />
+                </div>
+                <h3 className="text-sm font-bold text-white mb-1">تعذر تشغيل القناة</h3>
+                <p className="text-[11px] text-slate-300 max-w-xs mb-3 leading-relaxed font-sans">{streamError}</p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRetryStream();
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-nova-cyan/20 border border-nova-cyan/40 text-nova-cyan font-bold text-xs hover:bg-nova-cyan/30 active:scale-95 transition-all shadow-lg shadow-nova-cyan/10 cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>إعادة المحاولة</span>
+                </button>
               </div>
             )}
 
@@ -1480,11 +1510,11 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
             </header>
           )}
 
-          {/* 2. Cinema 3-Column Guide (Hidden when in Fullscreen) */}
-          {!tvIsFullscreen && (
-            <div className="flex-1 flex overflow-hidden p-3 gap-3 bg-[#070A12]">
-              
-              {/* Column 1: Categories List */}
+          {/* 2. Cinema 3-Column Guide (Video Container stays mounted during fullscreen) */}
+          <div className={tvIsFullscreen ? "fixed inset-0 w-screen h-screen overflow-hidden bg-black z-40 p-0 m-0" : "flex-1 flex overflow-hidden p-3 gap-3 bg-[#070A12]"}>
+            
+            {/* Column 1: Categories List */}
+            {!tvIsFullscreen && (
               <div className={`w-64 bg-[#090D18] rounded-2xl border flex flex-col overflow-hidden shrink-0 transition-all ${
                 tvFocusedColumn === 'categories' ? 'border-nova-cyan/60 shadow-[0_0_20px_rgba(0,242,254,0.15)]' : 'border-white/10'
               }`}>
@@ -1552,8 +1582,10 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                   })}
                 </div>
               </div>
+            )}
 
-              {/* Column 2: Channels Guide */}
+            {/* Column 2: Channels Guide */}
+            {!tvIsFullscreen && (
               <div className={`w-[400px] bg-[#090D18] rounded-2xl border flex flex-col overflow-hidden shrink-0 transition-all ${
                 tvFocusedColumn === 'channels' ? 'border-nova-cyan/60 shadow-[0_0_20px_rgba(0,242,254,0.15)]' : 'border-white/10'
               }`}>
@@ -1680,29 +1712,34 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                   )}
                 </div>
               </div>
+            )}
 
-              {/* Column 3: Cinema Live Preview & EPG Info Card */}
-              <div className={`flex-1 bg-[#090D18] rounded-2xl border flex flex-col p-4 gap-3 overflow-hidden min-w-0 transition-all ${
-                tvFocusedColumn === 'preview' ? 'border-nova-cyan/60 shadow-[0_0_20px_rgba(0,242,254,0.15)]' : 'border-white/10'
-              }`}>
-                
-                {/* Live Video Box: Seamlessly switches between Column 3 Preview Box and Fixed 100% Fullscreen */}
-                <div 
-                  ref={videoContainerRef}
-                  onClick={() => {
-                    if (!tvIsFullscreen) {
-                      setTvIsFullscreen(true);
-                      showTvOsd();
-                    } else {
-                      showTvOsd();
-                    }
-                  }}
-                  className={
-                    tvIsFullscreen
-                      ? "fixed inset-0 w-full h-full z-40 bg-black cursor-pointer overflow-hidden select-none"
-                      : "relative w-full aspect-video rounded-2xl overflow-hidden bg-black border border-white/15 shadow-2xl group cursor-pointer"
+            {/* Column 3: Cinema Live Preview & EPG Info Card (Always Mounted) */}
+            <div className={
+              tvIsFullscreen
+                ? "fixed inset-0 w-screen h-screen z-40 bg-black overflow-hidden m-0 p-0 border-none rounded-none flex flex-col"
+                : `flex-1 bg-[#090D18] rounded-2xl border flex flex-col p-4 gap-3 overflow-hidden min-w-0 transition-all ${
+                    tvFocusedColumn === 'preview' ? 'border-nova-cyan/60 shadow-[0_0_20px_rgba(0,242,254,0.15)]' : 'border-white/10'
+                  }`
+            }>
+              
+              {/* Live Video Box: Seamlessly switches between Column 3 Preview Box and Fixed 100% Fullscreen */}
+              <div 
+                ref={videoContainerRef}
+                onClick={() => {
+                  if (!tvIsFullscreen) {
+                    setTvIsFullscreen(true);
+                    showTvOsd();
+                  } else {
+                    showTvOsd();
                   }
-                >
+                }}
+                className={
+                  tvIsFullscreen
+                    ? "absolute inset-0 w-full h-full z-40 bg-black cursor-pointer overflow-hidden select-none"
+                    : "relative w-full aspect-video rounded-2xl overflow-hidden bg-black border border-white/15 shadow-2xl group cursor-pointer"
+                }
+              >
                   {subtitleCueText && (
                     <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 max-w-2xl px-6 py-2 rounded-2xl bg-black/85 border border-white/15 text-center pointer-events-none">
                       <span className="text-xl md:text-2xl font-bold text-amber-300 drop-shadow-md font-sans">
@@ -1717,6 +1754,44 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                       <span className="text-[11px] font-bold text-nova-cyan mt-2 tracking-wider font-mono">
                         جاري تجهيز البث ({activeEngine.toUpperCase()})...
                       </span>
+                    </div>
+                  )}
+
+                  {/* Stream Error Notification Overlay */}
+                  {streamError && (
+                    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/90 backdrop-blur-md p-6 text-center animate-in fade-in duration-200">
+                      <div className="w-16 h-16 rounded-3xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mb-4">
+                        <AlertCircle className="w-8 h-8 text-rose-400" />
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-2">تعذر تشغيل القناة</h3>
+                      <p className="text-sm text-slate-300 max-w-md mb-6 leading-relaxed font-sans">{streamError}</p>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          data-nav-id="btn-retry-stream"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRetryStream();
+                          }}
+                          className="tv-focusable flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-nova-cyan to-blue-500 text-slate-950 font-black text-xs hover:shadow-lg hover:shadow-nova-cyan/30 active:scale-95 transition-all cursor-pointer"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          <span>إعادة المحاولة</span>
+                        </button>
+                        {tvIsFullscreen && (
+                          <button
+                            type="button"
+                            data-nav-id="btn-exit-fs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTvIsFullscreen(false);
+                            }}
+                            className="tv-focusable flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white font-bold text-xs hover:bg-white/20 transition-all cursor-pointer"
+                          >
+                            <span>تصغير الشاشة</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -1757,128 +1832,131 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                 </div>
 
                 {/* EPG Program Info Card */}
-                <div className="flex-1 bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col justify-between overflow-hidden">
-                  <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-nova-cyan bg-cyan-950/60 px-2 py-0.5 rounded-md border border-cyan-500/30">
-                          #{activeChannel?.num}
+                {!tvIsFullscreen && (
+                  <div className="flex-1 bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col justify-between overflow-hidden">
+                    <div>
+                      <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-nova-cyan bg-cyan-950/60 px-2 py-0.5 rounded-md border border-cyan-500/30">
+                            #{activeChannel?.num}
+                          </span>
+                          <h3 className="text-base font-black text-white truncate">
+                            {activeChannel?.name}
+                          </h3>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-mono font-bold">
+                          {activeChannel?.resolution || '4K UHD'}
                         </span>
-                        <h3 className="text-base font-black text-white truncate">
-                          {activeChannel?.name}
-                        </h3>
                       </div>
-                      <span className="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-mono font-bold">
-                        {activeChannel?.resolution || '4K UHD'}
-                      </span>
+
+                      <div className="mt-3">
+                        <h4 className="text-base font-extrabold text-amber-300 leading-snug">
+                          {activeChannel?.currentProgram?.title || 'بث مباشر فائق الجودة'}
+                        </h4>
+                        <p className="text-xs text-slate-300 mt-1.5 leading-relaxed line-clamp-3">
+                          {activeChannel?.currentProgram?.description || 'استمتع بمشاهدة البث المباشر بأعلى دقة وسرعة فائقة من سيرفر NOVA 4K ULTRA الرسمي.'}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="mt-3">
-                      <h4 className="text-base font-extrabold text-amber-300 leading-snug">
-                        {activeChannel?.currentProgram?.title || 'بث مباشر فائق الجودة'}
-                      </h4>
-                      <p className="text-xs text-slate-300 mt-1.5 leading-relaxed line-clamp-3">
-                        {activeChannel?.currentProgram?.description || 'استمتع بمشاهدة البث المباشر بأعلى دقة وسرعة فائقة من سيرفر NOVA 4K ULTRA الرسمي.'}
-                      </p>
-                    </div>
+                    {activeChannel?.currentProgram && (
+                      <div className="pt-3 border-t border-white/5 space-y-1.5">
+                        <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+                          <span>{activeChannel.currentProgram.start}</span>
+                          <span className="text-[11px] text-cyan-400 font-sans">
+                            {activeChannel.nextProgram ? `التالي: ${activeChannel.nextProgram.title}` : 'بث مباشر متواصل'}
+                          </span>
+                          <span>{activeChannel.currentProgram.end}</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full"
+                            style={{ width: `${activeChannel.currentProgram.progressPercentage || 45}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-
-                  {activeChannel?.currentProgram && (
-                    <div className="pt-3 border-t border-white/5 space-y-1.5">
-                      <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-                        <span>{activeChannel.currentProgram.start}</span>
-                        <span className="text-[11px] text-cyan-400 font-sans">
-                          {activeChannel.nextProgram ? `التالي: ${activeChannel.nextProgram.title}` : 'بث مباشر متواصل'}
-                        </span>
-                        <span>{activeChannel.currentProgram.end}</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full"
-                          style={{ width: `${activeChannel.currentProgram.progressPercentage || 45}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
+                )}
 
                 {/* Quick Action Buttons */}
-                <div className="p-2 bg-black/40 rounded-2xl border border-white/10 flex items-center justify-between gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTvIsFullscreen(true);
-                      showTvOsd();
-                    }}
-                    className="flex-1 py-2 px-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <Maximize2 className="w-3.5 h-3.5 text-nova-cyan" />
-                    <span>ملء الشاشة</span>
-                  </button>
+                {!tvIsFullscreen && (
+                  <div className="p-2 bg-black/40 rounded-2xl border border-white/10 flex items-center justify-between gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTvIsFullscreen(true);
+                        showTvOsd();
+                      }}
+                      className="flex-1 py-2 px-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5 text-nova-cyan" />
+                      <span>ملء الشاشة</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setAudioSettingsOpen(true)}
-                    className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <Volume2 className="w-3.5 h-3.5 text-nova-cyan" />
-                    <span>المعلق الصوتي</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setAudioSettingsOpen(true)}
+                      className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Volume2 className="w-3.5 h-3.5 text-nova-cyan" />
+                      <span>المعلق الصوتي</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setSubtitleModalOpen(true)}
-                    className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <Subtitles className="w-3.5 h-3.5 text-purple-400" />
-                    <span>الترجمة</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setSubtitleModalOpen(true)}
+                      className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Subtitles className="w-3.5 h-3.5 text-purple-400" />
+                      <span>الترجمة</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={handleCycleAspectRatio}
-                    className="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-mono font-bold flex items-center gap-1 transition-all cursor-pointer"
-                  >
-                    <span className="text-nova-cyan text-[10px]">الأبعاد:</span>
-                    <span>{aspectRatio.toUpperCase()}</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={handleCycleAspectRatio}
+                      className="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-mono font-bold flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      <span className="text-nova-cyan text-[10px]">الأبعاد:</span>
+                      <span>{aspectRatio.toUpperCase()}</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={(e) => activeChannel && toggleFavorite(activeChannel.stream_id, e)}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 transition-all cursor-pointer"
-                    title="إضافة للمفضلة"
-                  >
-                    <Star className={`w-4 h-4 ${activeChannel && favorites.includes(activeChannel.stream_id) ? 'text-amber-400 fill-amber-400' : 'text-slate-400'}`} />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={(e) => activeChannel && toggleFavorite(activeChannel.stream_id, e)}
+                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 transition-all cursor-pointer"
+                      title="إضافة للمفضلة"
+                    >
+                      <Star className={`w-4 h-4 ${activeChannel && favorites.includes(activeChannel.stream_id) ? 'text-amber-400 fill-amber-400' : 'text-slate-400'}`} />
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={handleTakeScreenshot}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-cyan-400 transition-all cursor-pointer"
-                    title="التقاط لقطة شاشة"
-                  >
-                    <Camera className="w-4 h-4 text-cyan-400" />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={handleTakeScreenshot}
+                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-cyan-400 transition-all cursor-pointer"
+                      title="التقاط لقطة شاشة"
+                    >
+                      <Camera className="w-4 h-4 text-cyan-400" />
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={handleToggleRecording}
-                    className={`p-2 rounded-xl border transition-all cursor-pointer ${
-                      recordingState === 'recording'
-                        ? 'bg-red-500/20 border-red-500 text-red-400 animate-pulse'
-                        : 'bg-white/5 border-white/10 text-slate-200 hover:text-red-400'
-                    }`}
-                    title="تسجيل حي (DVR)"
-                  >
-                    <Video className="w-4 h-4 text-red-500" />
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={handleToggleRecording}
+                      className={`p-2 rounded-xl border transition-all cursor-pointer ${
+                        recordingState === 'recording'
+                          ? 'bg-red-500/20 border-red-500 text-red-400 animate-pulse'
+                          : 'bg-white/5 border-white/10 text-slate-200 hover:text-red-400'
+                      }`}
+                      title="تسجيل حي (DVR)"
+                    >
+                      <Video className="w-4 h-4 text-red-500" />
+                    </button>
+                  </div>
+                )}
 
               </div>
 
             </div>
-          )}
 
         </div>
       )}

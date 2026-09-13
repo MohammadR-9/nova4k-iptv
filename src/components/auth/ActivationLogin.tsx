@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  KeyRound, User, Lock, Sparkles, ShieldCheck, 
+  KeyRound, User, Sparkles, ShieldCheck, 
   AlertCircle, Wrench, Globe, ChevronDown, ChevronUp,
   Users, Trash2, Play, Plus, Shield, Edit3, Check, X, Keyboard,
-  Zap, Gamepad2
+  Zap, Gamepad2, Eye, EyeOff
 } from 'lucide-react';
 import { ActivationService } from '../../services/activation.service';
 import { XtreamService } from '../../services/xtream.service';
@@ -44,6 +44,8 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
     const hist = UrlHistoryService.getHistory();
     return hist[0]?.url || SERVER_CONFIG.getMasterDns();
   });
+
+  const [showPassword, setShowPassword] = useState(false);
 
   // On-Screen Virtual Keyboard State
   const [activeKeyboardField, setActiveKeyboardField] = useState<{
@@ -883,20 +885,35 @@ export const ActivationLogin: React.FC<ActivationLoginProps> = ({
                         data-nav-id="input-pass"
                         data-nav-up="input-user"
                         data-nav-down="btn-submit-creds"
-                        data-nav-left="btn-vk-pass"
-                        type="password"
+                        data-nav-left="btn-toggle-show-pass"
+                        type={showPassword ? "text" : "password"}
                         value={password}
                         onChange={(e) => { setPassword(e.target.value); setErrorMsg(null); }}
-                        onClick={() => openVirtualKeyboard('password', 'كلمة المرور (Password)', '••••••••', password, true)}
+                        onClick={() => openVirtualKeyboard('password', 'كلمة المرور (Password)', '••••••••', password, !showPassword)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            openVirtualKeyboard('password', 'كلمة المرور (Password)', '••••••••', password, true);
+                            openVirtualKeyboard('password', 'كلمة المرور (Password)', '••••••••', password, !showPassword);
                           }
                         }}
                         placeholder="••••••••"
-                        className="tv-focusable w-full h-12 md:h-13 bg-surface-elevated border-2 border-white/10 rounded-2xl px-5 text-sm md:text-base font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-accent-cyan text-right cursor-pointer"
+                        className="tv-focusable w-full h-12 md:h-13 bg-surface-elevated border-2 border-white/10 rounded-2xl pr-5 pl-12 text-sm md:text-base font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-accent-cyan text-right cursor-pointer"
                       />
-                      <Lock className="absolute left-4 top-3.5 w-4 h-4 md:w-5 md:h-5 text-slate-500 pointer-events-none" />
+                      <button
+                        data-nav-id="btn-toggle-show-pass"
+                        data-nav-up="input-user"
+                        data-nav-down="btn-submit-creds"
+                        data-nav-right="input-pass"
+                        data-nav-left="btn-vk-pass"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowPassword(!showPassword);
+                        }}
+                        className="tv-focusable absolute left-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer z-10"
+                        title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4 text-cyan-400" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                     <button
                       data-nav-id="btn-vk-pass"

@@ -46,6 +46,7 @@ export class HlsProEngine implements ITvPlayerEngine {
   private recordingDurationSec = 0;
 
   // Anti-Freeze & Auto-Recovery Monitor
+  private isStopped = false;
   private stallDetectorTimer: any = null;
   private bufferingSafetyTimeout: any = null;
   private lastPlaybackTime = 0;
@@ -186,51 +187,65 @@ export class HlsProEngine implements ITvPlayerEngine {
     this.videoElement = video;
 
     this.videoElement.addEventListener('playing', () => {
+      if (this.isStopped) return;
       this._isPlaying = true;
       this.isRecovering = false;
+      if (this.stallDetectorTimer) {
+        clearTimeout(this.stallDetectorTimer);
+        this.stallDetectorTimer = null;
+      }
       this.applyPendingSeek();
       this.events.onBuffering?.(false);
       this.events.onPlaying?.();
     });
 
     this.videoElement.addEventListener('waiting', () => {
+      if (this.isStopped) return;
       this.events.onBuffering?.(true);
       this.scheduleStallRecoveryCheck();
     });
 
     this.videoElement.addEventListener('loadedmetadata', () => {
+      if (this.isStopped) return;
       this.applyPendingSeek();
       this.events.onBuffering?.(false);
     });
 
     this.videoElement.addEventListener('canplay', () => {
+      if (this.isStopped) return;
       this.applyPendingSeek();
       this.events.onBuffering?.(false);
     });
 
     this.videoElement.addEventListener('loadeddata', () => {
+      if (this.isStopped) return;
       this.applyPendingSeek();
       this.events.onBuffering?.(false);
     });
 
     this.videoElement.addEventListener('seeked', () => {
-      if (this.videoElement) {
-        const cur = this.videoElement.currentTime;
-        if (this.pendingSeekTime !== null) {
-          // If we reached close to target, seek is confirmed!
-          if (cur >= Math.max(1, this.pendingSeekTime - 15.0)) {
-            this.isSeekConfirmed = true;
-            this.pendingSeekTime = null;
-            this.clearSeekWatchdog();
-          }
+      if (this.isStopped || !this.videoElement) return;
+      const cur = this.videoElement.currentTime;
+      if (this.pendingSeekTime !== null) {
+        // If we reached close to target, seek is confirmed!
+        if (cur >= Math.max(1, this.pendingSeekTime - 15.0)) {
+          this.isSeekConfirmed = true;
+          this.pendingSeekTime = null;
+          this.clearSeekWatchdog();
         }
       }
       this.events.onBuffering?.(false);
     });
 
     this.videoElement.addEventListener('timeupdate', () => {
-      if (!this.videoElement) return;
+      if (!this.videoElement || this.isStopped) return;
       const cur = this.videoElement.currentTime;
+
+      // When video is progressing normally, immediately cancel any stall detector timer!
+      if (cur > 0 && cur !== this.lastPlaybackTime && this.stallDetectorTimer) {
+        clearTimeout(this.stallDetectorTimer);
+        this.stallDetectorTimer = null;
+      }
 
       // CRITICAL: Block bogus early timeupdate events from overwriting resume position!
       if (this.pendingSeekTime !== null && !this.isSeekConfirmed) {
@@ -252,9 +267,43 @@ export class HlsProEngine implements ITvPlayerEngine {
       this.events.onTimeUpdate?.(cur, this.videoElement.duration || 0);
     });
 
-    this.videoElement.addEventListener('error', (e) => {
+    this.videoElement.addEventListener('error', async (e) => {
+      if (this.isStopped) return;
       console.warn('[HlsProEngine] Video element error caught:', e);
       this.events.onBuffering?.(false);
+
+      const probeUrl = this.currentUrl;
+      if (probeUrl && (probeUrl.startsWith('http') || probeUrl.startsWith('/api/proxy'))) {
+        try {
+          const isViteDevServer = typeof window !== 'undefined' && window.location.port === '5173';
+          const target = (isViteDevServer && !probeUrl.startsWith('/api/proxy'))
+            ? `/api/proxy?url=${encodeURIComponent(probeUrl)}`
+            : probeUrl;
+          const res = await fetch(target, { method: 'HEAD' });
+          if (res.status === 409) {
+            this.events.onError?.('تنبيه (409): هذا الحساب مستخدم حالياً من جهاز آخر (خط مكرر). يرجى إيقاف البث على الجهاز الآخر.');
+            return;
+          }
+          if (res.status === 401 || res.status === 403) {
+            this.events.onError?.('تنبيه (403): تم رفض الاتصال من السيرفر. يرجى التحقق من صلاحية الاشتراك.');
+            return;
+          }
+          if (res.status === 404) {
+            this.events.onError?.('تنبيه (404): رابط البث أو الفيلم غير متاح حالياً على السيرفر.');
+            return;
+          }
+          if (res.status === 503) {
+            this.events.onError?.('تنبيه (503): هذه القناة غير متاحة حالياً من المصدر على السيرفر. يرجى تجربة قناة أخرى.');
+            return;
+          }
+        } catch {}
+      }
+
+      if (this.currentStreamType === 'MP4') {
+        this.events.onError?.('تعذر تشغيل ملف الفيديو - قد تكون الصيغة غير مدعومة في المتصفح أو الرابط معطل.');
+        return;
+      }
+
       this.handleStreamFreezeRecovery('خطأ في استقبال حزم البث');
     });
 
@@ -263,6 +312,10 @@ export class HlsProEngine implements ITvPlayerEngine {
 
   public async loadStream(url: string, streamType: 'HLS' | 'MPEG-TS' | 'MP4' = 'HLS', startPosition: number = 0): Promise<void> {
     if (!this.videoElement) throw new Error('Video element not initialized');
+
+    this.isStopped = false;
+    this.isRecovering = false;
+    this.recoveryCount = 0;
 
     // 1. Immediately isolate audio & stop any previous playback
     const sessionId = ++this.currentLoadSessionId;
@@ -287,7 +340,14 @@ export class HlsProEngine implements ITvPlayerEngine {
       this.clearSeekWatchdog();
     }
 
-    if (this.stallDetectorTimer) clearTimeout(this.stallDetectorTimer);
+    if (this.stallDetectorTimer) {
+      clearTimeout(this.stallDetectorTimer);
+      this.stallDetectorTimer = null;
+    }
+    if (this.bufferingSafetyTimeout) {
+      clearTimeout(this.bufferingSafetyTimeout);
+      this.bufferingSafetyTimeout = null;
+    }
 
     if (this.mpegtsPlayer) {
       try {
@@ -405,32 +465,24 @@ export class HlsProEngine implements ITvPlayerEngine {
           }
 
           mpegPlayer.on(mpegts.Events.ERROR, (errType: any, errDetail: any) => {
+            if (this.isStopped || sessionId !== this.currentLoadSessionId) return;
             console.warn('[HlsProEngine] mpegts player error:', errType, errDetail);
             this.events.onBuffering?.(false);
             if (url.includes('.ts') && !this.isRecovering) {
               this.isRecovering = true;
               const fallbackM3u8 = url.replace(/\.ts(\?|$)/, '.m3u8$1');
               console.log('[HlsProEngine] mpegts error, attempting .m3u8 fallback:', fallbackM3u8);
-              this.loadStream(fallbackM3u8, 'HLS').catch(() => {
-                if (this.videoElement) {
-                  try { this.mpegtsPlayer?.destroy(); } catch {}
-                  this.mpegtsPlayer = null;
-                  this.videoElement.src = streamUrl;
-                  this.videoElement.load();
-                  this.videoElement.play().catch(() => {});
-                }
-              });
+              this.loadStream(fallbackM3u8, 'HLS')
+                .then(() => {
+                  this.isRecovering = false;
+                })
+                .catch(() => {
+                  this.isRecovering = false;
+                  this.events.onError?.('تعذر استقبال حزم بث MPEG-TS');
+                });
               return;
             }
-            if (this.videoElement) {
-              try {
-                this.mpegtsPlayer?.destroy();
-              } catch {}
-              this.mpegtsPlayer = null;
-              this.videoElement.src = streamUrl;
-              this.videoElement.load();
-              this.videoElement.play().catch(() => {});
-            }
+            this.events.onError?.('خطأ في استقبال البث المباشر');
           });
 
           mpegPlayer.on(mpegts.Events.MEDIA_INFO, (mediaInfo: any) => {
@@ -563,9 +615,9 @@ export class HlsProEngine implements ITvPlayerEngine {
         }
       });
 
-      // Direct Native Video Fallback (For Android WebView Stagefright/MediaCodec bypass)
+      // Direct Native Video Fallback (Only for direct media files, e.g. MP4/MKV/WebM)
       const fallbackToNative = () => {
-        if (sessionId !== this.currentLoadSessionId || !this.videoElement) return;
+        if (sessionId !== this.currentLoadSessionId || !this.videoElement || this.isStopped) return;
         console.log('[HlsProEngine] Falling back to native Android/HTML5 player:', streamUrl);
         try {
           if (this.hls) {
@@ -577,9 +629,17 @@ export class HlsProEngine implements ITvPlayerEngine {
             this.mpegtsPlayer = null;
           }
         } catch {}
-        // If it was .m3u8, Android Chromium native player cannot play HLS, so try .ts directly!
-        const nativeUrl = streamUrl.includes('.m3u8') ? streamUrl.replace(/\.m3u8(\?|$)/, '.ts$1') : streamUrl;
-        this.videoElement.src = nativeUrl;
+
+        // In Chromium / Electron, native <video> CANNOT play raw MPEG-TS (.ts) streams without MSE!
+        const isRawTs = streamUrl.includes('.ts') || streamType === 'MPEG-TS';
+        if (isRawTs) {
+          console.warn('[HlsProEngine] Chromium native player does not support raw .ts streams without MSE.');
+          this.events.onError?.('تعذر تشغيل بث MPEG-TS - السيرفر لم يرسل حزم صالحة');
+          this.events.onBuffering?.(false);
+          return;
+        }
+
+        this.videoElement.src = streamUrl;
         this.videoElement.load();
         if (this.pendingSeekTime !== null) {
           this.applyPendingSeek();
@@ -603,17 +663,40 @@ export class HlsProEngine implements ITvPlayerEngine {
 
       // Anti-Freeze Error Auto-Recovery Loop
       hlsInstance.on(Hls.Events.ERROR, (_event, data) => {
-        if (sessionId !== this.currentLoadSessionId) return;
+        if (sessionId !== this.currentLoadSessionId || this.isStopped) return;
         if (data.fatal) {
-          console.warn('[HlsProEngine] Hls.js fatal error:', data.type, data.details);
+          console.warn('[HlsProEngine] Hls.js fatal error:', data.type, data.details, data.response?.code);
+          const httpCode = (data.response && data.response.code) || 0;
+
+          if (httpCode === 409) {
+            this.events.onError?.('تنبيه (409): هذا الحساب مستخدم حالياً من جهاز آخر (خط مكرر). يرجى إيقاف البث على الجهاز الآخر.');
+            this.events.onBuffering?.(false);
+            return;
+          }
+          if (httpCode === 401 || httpCode === 403) {
+            this.events.onError?.('تنبيه (403): تم رفض الاتصال من السيرفر. يرجى مراجعة صلاحية الحساب.');
+            this.events.onBuffering?.(false);
+            return;
+          }
+          if (httpCode === 503) {
+            this.events.onError?.('تنبيه (503): هذه القناة غير متاحة حالياً من المصدر على السيرفر. يرجى تجربة قناة أخرى.');
+            this.events.onBuffering?.(false);
+            return;
+          }
+
           // If HLS fails on an .m3u8 stream, immediately try .ts stream (standard universal Xtream Codes stream)
           if (url.includes('.m3u8') && !this.isRecovering) {
             this.isRecovering = true;
             const fallbackTs = url.replace(/\.m3u8(\?|$)/, '.ts$1');
             console.log('[HlsProEngine] HLS playback failed, falling back to MPEG-TS:', fallbackTs);
-            this.loadStream(fallbackTs, 'MPEG-TS').catch(() => {
-              fallbackToNative();
-            });
+            this.loadStream(fallbackTs, 'MPEG-TS')
+              .then(() => {
+                this.isRecovering = false;
+              })
+              .catch(() => {
+                this.isRecovering = false;
+                fallbackToNative();
+              });
             return;
           }
 
@@ -693,17 +776,22 @@ export class HlsProEngine implements ITvPlayerEngine {
   // Anti-Freeze Monitor: Check for stalls & freezing
   private scheduleStallRecoveryCheck(): void {
     if (this.stallDetectorTimer) clearTimeout(this.stallDetectorTimer);
+    if (this.isStopped) return;
 
-    // If stream stays buffering or stalled for over 2.5 seconds, auto-recover
+    // If stream stays buffering or stalled for over 3.5 seconds, auto-recover
     this.stallDetectorTimer = setTimeout(() => {
-      if (this.videoElement && (this.videoElement.paused || this.videoElement.readyState < 3 || this.videoElement.currentTime === this.lastPlaybackTime)) {
+      this.stallDetectorTimer = null;
+      if (this.isStopped || !this.videoElement) return;
+
+      // Check if video is actually frozen and not advancing
+      if (this.videoElement.paused || this.videoElement.readyState < 3 || this.videoElement.currentTime === this.lastPlaybackTime) {
         this.handleStreamFreezeRecovery('تم الكشف عن تجمد البث - استرداد تلقائي ذكي');
       }
-    }, 2500);
+    }, 3500);
   }
 
   private handleStreamFreezeRecovery(reason: string): void {
-    if (this.isRecovering) return;
+    if (this.isStopped || this.isRecovering) return;
     this.isRecovering = true;
     this.recoveryCount++;
     this.diagnostics.recoveryCount = this.recoveryCount;
@@ -716,13 +804,18 @@ export class HlsProEngine implements ITvPlayerEngine {
       if (this.hls) {
         this.hls.recoverMediaError();
         this.hls.startLoad();
+      } else if (this.mpegtsPlayer) {
+        if (this.videoElement && !this.videoElement.paused) {
+          this.videoElement.play().catch(() => {});
+        }
+      } else {
+        this.videoElement?.play().catch(() => {});
       }
-      this.videoElement?.play().catch(() => {});
     } catch {}
 
     setTimeout(() => {
       this.isRecovering = false;
-    }, 3000);
+    }, 2500);
   }
 
   // Buffer profile switching
@@ -1133,19 +1226,23 @@ export class HlsProEngine implements ITvPlayerEngine {
   }
 
   public stop(): void {
+    this.isStopped = true;
     this.currentLoadSessionId++;
+    this.isRecovering = false;
+    this.recoveryCount = 0;
     this.pendingSeekTime = null;
     this.isSeekConfirmed = false;
     this.clearSeekWatchdog();
-    if (this.videoElement) {
-      this.videoElement.pause();
-      this.videoElement.muted = true;
-      this.videoElement.removeAttribute('src');
-      this.videoElement.load();
+
+    if (this.stallDetectorTimer) {
+      clearTimeout(this.stallDetectorTimer);
+      this.stallDetectorTimer = null;
     }
-    if (this.gainNode) {
-      try { this.gainNode.gain.setValueAtTime(0, 0); } catch {}
+    if (this.bufferingSafetyTimeout) {
+      clearTimeout(this.bufferingSafetyTimeout);
+      this.bufferingSafetyTimeout = null;
     }
+
     if (this.mpegtsPlayer) {
       try {
         this.mpegtsPlayer.pause();
@@ -1155,6 +1252,7 @@ export class HlsProEngine implements ITvPlayerEngine {
       } catch {}
       this.mpegtsPlayer = null;
     }
+
     if (this.hls) {
       try {
         this.hls.stopLoad();
@@ -1163,7 +1261,22 @@ export class HlsProEngine implements ITvPlayerEngine {
       } catch {}
       this.hls = null;
     }
+
+    if (this.gainNode) {
+      try { this.gainNode.gain.setValueAtTime(0, 0); } catch {}
+    }
+
+    if (this.videoElement) {
+      try {
+        this.videoElement.pause();
+        this.videoElement.muted = true;
+        this.videoElement.removeAttribute('src');
+        this.videoElement.load();
+      } catch {}
+    }
+
     this._isPlaying = false;
+    this.currentUrl = '';
   }
 
   public seek(timeInSec: number): void {

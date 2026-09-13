@@ -190,13 +190,15 @@ export const App: React.FC = () => {
         
         // Enter / OK
         case TV_KEYS.ENTER:
+        case TV_KEYS.ANDROID_DPAD_CENTER:
           spatialNav.triggerClick();
           break;
 
-        // Return / Back (Tizen 10009, LG webOS 461, PC Esc)
+        // Return / Back (Tizen 10009, LG webOS 461, PC Esc, Android 4)
         case TV_KEYS.RETURN:
         case TV_KEYS.WEBOS_BACK:
         case TV_KEYS.ESCAPE:
+        case TV_KEYS.ANDROID_BACK:
           handleBackPress();
           break;
 
@@ -231,9 +233,11 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('android-back-button', handleAndroidBack);
+    window.addEventListener('backbutton', handleAndroidBack);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('android-back-button', handleAndroidBack);
+      window.removeEventListener('backbutton', handleAndroidBack);
     };
   }, [currentScreen, isDiagnosticsOpen, isSettingsOpen, isExitModalOpen, colorSequence, account, screenHistory]);
 

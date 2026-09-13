@@ -155,15 +155,24 @@ export class ActivationService {
    * If server rejects, checks registered system accounts.
    */
   public static async activateByCredentials(username: string, pass: string, serverUrl?: string): Promise<UserAccount> {
-    const user = username.trim();
-    const password = pass.trim();
+    const normalizeDigits = (s: string) => {
+      if (!s) return '';
+      const ar = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+      const fa = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+      return s.replace(/[٠-٩]/g, (w) => String(ar.indexOf(w)))
+              .replace(/[۰-۹]/g, (w) => String(fa.indexOf(w)));
+    };
+
+    const user = normalizeDigits(username.trim());
+    const password = normalizeDigits(pass.trim());
     const host = serverUrl?.trim() || SERVER_CONFIG.DEFAULT_PORTAL_URL;
 
     if (!user || !password) {
       throw new Error('يرجى إدخال اسم المستخدم وكلمة المرور.');
     }
 
-    // 1. Attempt Live Server Authentication against Look4k
+    // 1. Attempt Live Server Authentication against Look4k / Xtream Server
+    let liveErrorReason: string | null = null;
     try {
       const authData = await XtreamService.authenticate(host, user, password);
       if (authData?.user_info && authData.user_info.auth === 1) {
@@ -189,6 +198,7 @@ export class ActivationService {
       }
     } catch (err: any) {
       console.log(`[ActivationService] Live server authentication attempt on ${host} returned:`, err?.message);
+      liveErrorReason = err?.message || null;
     }
 
     // 2. Fallback to STRICT LOCAL ACCOUNTS CHECK
@@ -213,8 +223,9 @@ export class ActivationService {
     }
 
     const cleanHost = host.replace(/^https?:\/\//, '');
+    const reasonMsg = liveErrorReason ? ` (${liveErrorReason})` : '';
     throw new Error(
-      `بيانات الدخول غير صحيحة على سيرفر (${cleanHost}). يرجى التأكد من البيانات أو استخدام حساب التجربة (vip_user / pass7788).`
+      `بيانات الدخول غير صحيحة على سيرفر (${cleanHost})${reasonMsg}. يرجى التأكد من البيانات أو استخدام حساب التجربة (vip_user / pass7788).`
     );
   }
 

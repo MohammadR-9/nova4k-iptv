@@ -295,3 +295,28 @@ html[data-device="mobile"] .tv-focused-subtle {
   }
 }
 
+/* ── TV Overscan Safe Area & Hardware-Optimized Focus (From NOVA 4K ULTRA) ── */
+.tv-safe {
+  padding-block: max(1.75rem, 3.5vh);
+  padding-inline: max(2.5rem, 4vw);
+}
+
+/* Zero-cost outline focus on TV to avoid multi-pass box-shadow GPU lag */
+html[data-device="tv"] .tv-focused,
+html[data-device="tv"] .tv-card.is-focused {
+  transform: none;
+  box-shadow: none !important;
+  outline: 3px solid #00F2FE !important;
+  outline-offset: 3px;
+}
+
+html[data-device="tv"] .tv-focusable {
+  transition: outline-color 0.12s ease-out;
+}
+
+/* LG webOS Magic Remote pointer mode support */
+body.webos-pointer-mode .tv-focusable,
+body.webos-pointer-mode button {
+  cursor: pointer;
+}
+

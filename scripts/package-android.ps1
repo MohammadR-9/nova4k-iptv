@@ -137,6 +137,51 @@ $readmeLines = @(
 )
 $readmeLines | Out-File -FilePath "$OutputDir\README.md" -Encoding UTF8
 
+# 6. Automatic Production APK Package & Signature
+Write-Host "[5/5] Building & Signing Production APK (NOVA_4K_ULTRA.apk)..." -ForegroundColor Yellow
+try {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+
+    $javaHome = "D:\AI Apps\Tizen IPTV\.tools\jdk-17.0.20.1+1"
+    $buildTools = "D:\AI Apps\Tizen IPTV\.tools\android-sdk\build-tools\34.0.0"
+    $keystore = "C:\Users\Mohammad\.android\debug.keystore"
+    $baseApk = "$OutputDir\NOVA_4K_ULTRA.apk"
+
+    if ((Test-Path $baseApk) -and (Test-Path "$buildTools\zipalign.exe") -and (Test-Path "$buildTools\apksigner.bat")) {
+        $env:JAVA_HOME = $javaHome
+        $env:PATH = "$javaHome\bin;$buildTools;$env:PATH"
+        $workDir = "$env:TEMP\apk_build_temp"
+        $unsignedAlignedApk = "$workDir\app-aligned-unsigned.apk"
+        $signedTempApk = "$workDir\NOVA_4K_ULTRA_SIGNED.apk"
+
+        if (Test-Path $workDir) { Remove-Item -Recurse -Force $workDir }
+        New-Item -ItemType Directory -Force -Path "$workDir\extracted" | Out-Null
+
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($baseApk, "$workDir\extracted")
+        Remove-Item -Recurse -Force "$workDir\extracted\META-INF" -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force "$workDir\extracted\assets\public\*" -ErrorAction SilentlyContinue
+        Copy-Item -Path "dist\*" -Destination "$workDir\extracted\assets\public" -Recurse -Force
+
+        $unalignedZip = "$workDir\unaligned.apk"
+        [System.IO.Compression.ZipFile]::CreateFromDirectory("$workDir\extracted", $unalignedZip, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+
+        & "$buildTools\zipalign.exe" -p -f 4 $unalignedZip $unsignedAlignedApk
+        if ($LASTEXITCODE -eq 0) {
+            cmd.exe /c "`"$buildTools\apksigner.bat`" sign --ks `"$keystore`" --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out `"$signedTempApk`" `"$unsignedAlignedApk`""
+            if ($LASTEXITCODE -eq 0) {
+                Copy-Item -Path $signedTempApk -Destination "$OutputDir\NOVA_4K_ULTRA.apk" -Force
+                Copy-Item -Path $signedTempApk -Destination "..\NOVA_4K_ULTRA.apk" -Force
+                Write-Host "Production APK signed successfully!" -ForegroundColor Green
+            }
+        }
+        Remove-Item -Recurse -Force $workDir -ErrorAction SilentlyContinue
+    }
+} catch {
+    Write-Warning "Automated APK fast-sign skipped: $_"
+}
+
 Write-Host "=========================================" -ForegroundColor Green
 Write-Host "Android TV & Mobile Project Deployed to: $OutputDir" -ForegroundColor Green
+Write-Host "Production APK Ready at: $OutputDir\NOVA_4K_ULTRA.apk" -ForegroundColor Green
+Write-Host "Root APK Ready at: ..\NOVA_4K_ULTRA.apk" -ForegroundColor Green
 Write-Host "=========================================" -ForegroundColor Green

@@ -24,6 +24,11 @@ function corsProxyPlugin() {
           return;
         }
 
+        const abortController = new AbortController();
+        res.on('close', () => {
+          try { abortController.abort(); } catch {}
+        });
+
         try {
           const forwardHeaders: Record<string, string> = {
             'User-Agent': 'Mozilla/5.0 (SmartHub; SMART-TV; U; Linux/Tizen 6.0; SmartTV) AppleWebKit/537.36'
@@ -33,7 +38,8 @@ function corsProxyPlugin() {
           }
 
           const response = await fetch(targetUrl, {
-            headers: forwardHeaders
+            headers: forwardHeaders,
+            signal: abortController.signal
           });
 
           res.setHeader('Access-Control-Allow-Origin', '*');
@@ -44,14 +50,7 @@ function corsProxyPlugin() {
           const contentType = response.headers.get('content-type') || '';
           if (contentType) res.setHeader('Content-Type', contentType);
           const isM3u8 = targetUrl.includes('.m3u8') || contentType.includes('mpegurl') || contentType.includes('application/x-mpegURL');
-          if (response.status === 206) {
-            const contentLength = response.headers.get('content-length');
-            if (contentLength) res.setHeader('Content-Length', contentLength);
-          }
-          const contentRange = response.headers.get('content-range');
-          if (contentRange) res.setHeader('Content-Range', contentRange);
-          const acceptRanges = response.headers.get('accept-ranges');
-          if (acceptRanges) res.setHeader('Accept-Ranges', acceptRanges);
+          const isMediaStream = targetUrl.includes('.ts') || targetUrl.includes('.mp4') || targetUrl.includes('.mkv') || contentType.includes('video/') || contentType.includes('audio/');
 
           // If it's an HLS m3u8 playlist, rewrite relative chunk URLs to go through the proxy!
           if (isM3u8) {
@@ -98,18 +97,32 @@ function corsProxyPlugin() {
             return;
           }
 
-          if (response.body) {
-            const { Readable } = await import('node:stream');
-            const stream = Readable.fromWeb(response.body as any);
-            stream.on('error', () => {});
-            res.on('close', () => {
-              try { stream.destroy(); } catch {}
-            });
-            stream.pipe(res);
-          } else {
-            const arrayBuffer = await response.arrayBuffer();
-            res.end(Buffer.from(arrayBuffer));
+          // For video/audio media chunks (e.g. .ts, .mp4), stream directly and forward content-length & range
+          if (isMediaStream) {
+            const contentLength = response.headers.get('content-length');
+            if (contentLength) res.setHeader('Content-Length', contentLength);
+            const contentRange = response.headers.get('content-range');
+            if (contentRange) res.setHeader('Content-Range', contentRange);
+            const acceptRanges = response.headers.get('accept-ranges');
+            res.setHeader('Accept-Ranges', acceptRanges || 'bytes');
+
+            if (response.body) {
+              const { Readable } = await import('node:stream');
+              const stream = Readable.fromWeb(response.body as any);
+              stream.on('error', () => {});
+              res.on('close', () => {
+                try { stream.destroy(); } catch {}
+              });
+              stream.pipe(res);
+              return;
+            }
           }
+
+          // For all JSON, API, and text data: fetch() already decompressed it (gzip), so calculate actual Buffer length!
+          const arrayBuffer = await response.arrayBuffer();
+          const buf = Buffer.from(arrayBuffer);
+          res.setHeader('Content-Length', buf.byteLength);
+          res.end(buf);
         } catch (err: any) {
           res.statusCode = 502;
           res.end('Proxy error: ' + err?.message);

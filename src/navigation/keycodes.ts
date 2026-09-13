@@ -21,6 +21,19 @@ export const TV_KEYS = {
   STOP: 413,
   FAST_FORWARD: 417,
   REWIND: 412,
+  TIZEN_REWIND_2: 10232,
+  TIZEN_FF_2: 10233,
+  SPACE: 32,
+
+  // Android TV Hardware Keys
+  ANDROID_BACK: 4,
+  ANDROID_DPAD_CENTER: 23,
+  ANDROID_MEDIA_PLAY_PAUSE: 85,
+  ANDROID_MEDIA_PLAY: 126,
+  ANDROID_MEDIA_PAUSE: 127,
+  ANDROID_MEDIA_STOP: 86,
+  ANDROID_CHANNEL_UP: 166,
+  ANDROID_CHANNEL_DOWN: 167,
 
   // Channel Controls
   CHANNEL_UP: 427,
@@ -40,9 +53,11 @@ export const TV_KEYS = {
   KEY_Y: 89,
   KEY_B: 66,
 
-  // Diagnostics & Info
+  // Diagnostics & Info & Search
   INFO: 457,
-  KEY_I: 73
+  KEY_I: 73,
+  SEARCH: 10221,
+  KEY_S: 83
 };
 
 /**
@@ -65,7 +80,8 @@ export function registerTizenHardwareKeys() {
         'ColorF3Blue',
         'ChannelUp',
         'ChannelDown',
-        'Info'
+        'Info',
+        'Search'
       ];
 
       keysToRegister.forEach(keyName => {

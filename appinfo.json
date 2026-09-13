@@ -12,6 +12,7 @@
   "supportMouse": true,
   "transparent": false,
   "handlesRelaunch": true,
+  "disableBackHistoryAPI": true,
   "requiredPermissions": [
     "media.storage",
     "audio.output",
