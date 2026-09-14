@@ -137,47 +137,30 @@ $readmeLines = @(
 )
 $readmeLines | Out-File -FilePath "$OutputDir\README.md" -Encoding UTF8
 
-# 6. Automatic Production APK Package & Signature
-Write-Host "[5/5] Building & Signing Production APK (NOVA_4K_ULTRA.apk)..." -ForegroundColor Yellow
+# 6. Automatic Production APK Package via Gradle
+Write-Host "[5/5] Compiling Production APK via Gradle..." -ForegroundColor Yellow
 try {
-    Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+    $javaHome = if ($env:JAVA_HOME) { $env:JAVA_HOME } else { "C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot" }
+    $androidSdk = "D:\AI Apps\Tizen IPTV\.tools\android-sdk"
+    $env:JAVA_HOME = $javaHome
+    $env:ANDROID_HOME = $androidSdk
+    $env:ANDROID_SDK_ROOT = $androidSdk
 
-    $javaHome = "D:\AI Apps\Tizen IPTV\.tools\jdk-17.0.20.1+1"
-    $buildTools = "D:\AI Apps\Tizen IPTV\.tools\android-sdk\build-tools\34.0.0"
-    $keystore = "C:\Users\Mohammad\.android\debug.keystore"
-    $baseApk = "$OutputDir\NOVA_4K_ULTRA.apk"
+    $targetOutputDir = (Resolve-Path $OutputDir).Path
+    $targetRootDir = (Resolve-Path "..").Path
 
-    if ((Test-Path $baseApk) -and (Test-Path "$buildTools\zipalign.exe") -and (Test-Path "$buildTools\apksigner.bat")) {
-        $env:JAVA_HOME = $javaHome
-        $env:PATH = "$javaHome\bin;$buildTools;$env:PATH"
-        $workDir = "$env:TEMP\apk_build_temp"
-        $unsignedAlignedApk = "$workDir\app-aligned-unsigned.apk"
-        $signedTempApk = "$workDir\NOVA_4K_ULTRA_SIGNED.apk"
-
-        if (Test-Path $workDir) { Remove-Item -Recurse -Force $workDir }
-        New-Item -ItemType Directory -Force -Path "$workDir\extracted" | Out-Null
-
-        [System.IO.Compression.ZipFile]::ExtractToDirectory($baseApk, "$workDir\extracted")
-        Remove-Item -Recurse -Force "$workDir\extracted\META-INF" -ErrorAction SilentlyContinue
-        Remove-Item -Recurse -Force "$workDir\extracted\assets\public\*" -ErrorAction SilentlyContinue
-        Copy-Item -Path "dist\*" -Destination "$workDir\extracted\assets\public" -Recurse -Force
-
-        $unalignedZip = "$workDir\unaligned.apk"
-        [System.IO.Compression.ZipFile]::CreateFromDirectory("$workDir\extracted", $unalignedZip, [System.IO.Compression.CompressionLevel]::Optimal, $false)
-
-        & "$buildTools\zipalign.exe" -p -f 4 $unalignedZip $unsignedAlignedApk
-        if ($LASTEXITCODE -eq 0) {
-            cmd.exe /c "`"$buildTools\apksigner.bat`" sign --ks `"$keystore`" --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out `"$signedTempApk`" `"$unsignedAlignedApk`""
-            if ($LASTEXITCODE -eq 0) {
-                Copy-Item -Path $signedTempApk -Destination "$OutputDir\NOVA_4K_ULTRA.apk" -Force
-                Copy-Item -Path $signedTempApk -Destination "..\NOVA_4K_ULTRA.apk" -Force
-                Write-Host "Production APK signed successfully!" -ForegroundColor Green
-            }
-        }
-        Remove-Item -Recurse -Force $workDir -ErrorAction SilentlyContinue
+    Push-Location "android"
+    .\gradlew assembleDebug --no-daemon
+    $apkSource = "app\build\outputs\apk\debug\app-debug.apk"
+    if ($LASTEXITCODE -eq 0 -and (Test-Path $apkSource)) {
+        Copy-Item -Path $apkSource -Destination "$targetOutputDir\NOVA_4K_ULTRA.apk" -Force
+        Copy-Item -Path $apkSource -Destination "$targetRootDir\NOVA_4K_ULTRA.apk" -Force
+        Copy-Item -Path $apkSource -Destination "$targetRootDir\NOVA_4K_ULTRA_AndroidTV.apk" -Force
+        Write-Host "Production APK compiled & deployed successfully via local Gradle!" -ForegroundColor Green
     }
+    Pop-Location
 } catch {
-    Write-Warning "Automated APK fast-sign skipped: $_"
+    Write-Warning "Gradle APK compilation error: $_"
 }
 
 Write-Host "=========================================" -ForegroundColor Green
