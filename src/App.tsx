@@ -124,8 +124,14 @@ export const App: React.FC = () => {
           return;
         }
 
-        // Vertical arrows: allow leaving the input to navigate up/down
+        // Vertical arrows: on non-TV devices, blur input to navigate up/down.
+        // On TVs, keep focus in input — TV virtual keyboards use arrows internally!
         if ([TV_KEYS.UP, TV_KEYS.DOWN].includes(code)) {
+          const isTvDevice = document.documentElement.getAttribute('data-device') === 'tv';
+          if (isTvDevice) {
+            // Let the TV system keyboard handle vertical navigation
+            return;
+          }
           target?.blur();
           // proceed to spatial navigation below
         } else {
@@ -165,8 +171,9 @@ export const App: React.FC = () => {
         }
       }
 
-      // If user is inside VodPlayer, let VodPlayer handle its own arrow seeking & controls!
-      if (currentScreen === 'vod-player') {
+      // If user is inside VodPlayer or LiveTV, let the screen component handle its own arrow/key controls!
+      // Dual handlers (spatialNav + component keydown) cause erratic focus jumping on TV CPUs.
+      if (currentScreen === 'vod-player' || currentScreen === 'live') {
         if (code === TV_KEYS.RETURN || code === TV_KEYS.WEBOS_BACK || code === TV_KEYS.ESCAPE) {
           handleBackPress();
         }

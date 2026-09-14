@@ -401,6 +401,52 @@ export class HlsProEngine implements ITvPlayerEngine {
       const isExplicitTs = (url.endsWith('.ts') || streamUrl.endsWith('.ts') || streamType === 'MPEG-TS') && 
                            !url.includes('.m3u8') && 
                            !streamUrl.includes('.m3u8');
+
+      // TV HARDWARE BYPASS: On Smart TVs (Tizen, webOS, Android TV), skip mpegts.js entirely!
+      // Their native <video> hardware decoders play .ts streams at near-0% CPU.
+      // mpegts.js does JavaScript software demuxing → 100% CPU on weak TV ARM chips → 0 frames rendered.
+      const isTvNativePlayer = typeof document !== 'undefined' &&
+        document.documentElement.getAttribute('data-device') === 'tv';
+      
+      if (isExplicitTs && isTvNativePlayer) {
+        if (sessionId !== this.currentLoadSessionId) return;
+        if (this.bufferingSafetyTimeout) clearTimeout(this.bufferingSafetyTimeout);
+        console.log('[HlsProEngine] 📺 TV detected — using native <video> for .ts stream (hardware decoder):', streamUrl);
+        
+        this.videoElement!.src = streamUrl;
+        this.videoElement!.load();
+        
+        if (startPosition > 0) {
+          this.applyPendingSeek();
+        }
+        
+        if (this.gainNode) {
+          try { this.gainNode.gain.setValueAtTime(this.volumeLevel, 0); } catch {}
+        }
+        
+        const playPromise = this.videoElement!.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            if (this.videoElement) this.videoElement.muted = false;
+            this.applyPendingSeek();
+            this.events.onBuffering?.(false);
+          }).catch(() => {
+            if (this.videoElement) {
+              this.videoElement.muted = true;
+              this.videoElement.play().catch(() => {});
+              this.applyPendingSeek();
+            }
+            this.events.onBuffering?.(false);
+          });
+        }
+        
+        this.diagnostics.protocol = 'MPEG-TS';
+        this.applyAspectRatioTransform();
+        this.events.onBuffering?.(false);
+        resolve();
+        return;
+      }
+
       if (isExplicitTs && mpegts.isSupported()) {
         if (sessionId !== this.currentLoadSessionId) return;
         if (this.bufferingSafetyTimeout) clearTimeout(this.bufferingSafetyTimeout);
@@ -631,12 +677,18 @@ export class HlsProEngine implements ITvPlayerEngine {
         } catch {}
 
         // In Chromium / Electron, native <video> CANNOT play raw MPEG-TS (.ts) streams without MSE!
+        // BUT on Smart TVs (Tizen, webOS, Android TV), native <video> CAN play .ts via hardware decoder!
         const isRawTs = streamUrl.includes('.ts') || streamType === 'MPEG-TS';
-        if (isRawTs) {
+        const isTvDevice = typeof document !== 'undefined' &&
+          document.documentElement.getAttribute('data-device') === 'tv';
+        if (isRawTs && !isTvDevice) {
           console.warn('[HlsProEngine] Chromium native player does not support raw .ts streams without MSE.');
           this.events.onError?.('تعذر تشغيل بث MPEG-TS - السيرفر لم يرسل حزم صالحة');
           this.events.onBuffering?.(false);
           return;
+        }
+        if (isRawTs && isTvDevice) {
+          console.log('[HlsProEngine] 📺 TV fallback — native <video> for .ts stream (hardware decoder)');
         }
 
         this.videoElement.src = streamUrl;

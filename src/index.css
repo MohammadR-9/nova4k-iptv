@@ -320,3 +320,48 @@ body.webos-pointer-mode button {
   cursor: pointer;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   📺 TV GPU PERFORMANCE — DISABLE HEAVY EFFECTS
+   Mali/MStar GPU chips CANNOT render Gaussian blur at 1080p@60fps.
+   backdrop-filter: blur() causes 10-15fps on most Smart TVs.
+   Replace with solid semi-transparent backgrounds.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Kill ALL backdrop-blur on TV — the single biggest GPU bottleneck */
+html[data-device="tv"] [class*="backdrop-blur"],
+html[data-device="tv"] [style*="backdrop-filter"] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background-color: rgba(10, 10, 20, 0.92) !important;
+}
+
+/* Disable heavy transitions and transforms on TV to save CPU cycles */
+html[data-device="tv"] * {
+  transition-duration: 0.08s !important;
+}
+
+/* Disable blur-3xl decorative background glows on TV */
+html[data-device="tv"] [class*="blur-3xl"],
+html[data-device="tv"] [class*="blur-2xl"] {
+  display: none !important;
+}
+
+/* Disable heavy box-shadow animations on TV */
+html[data-device="tv"] .tv-focused-subtle {
+  transform: none;
+  box-shadow: none !important;
+  outline: 2px solid rgba(0, 229, 255, 0.6) !important;
+  outline-offset: 2px;
+}
+
+/* Reduce scrollbar paint cost on TV */
+html[data-device="tv"] ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+/* Disable smooth scroll on TV — saves CPU on large lists */
+html[data-device="tv"] * {
+  scroll-behavior: auto !important;
+}
+
