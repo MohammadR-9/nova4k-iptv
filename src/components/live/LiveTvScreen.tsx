@@ -23,6 +23,7 @@ import { DvrRecordingBar } from './DvrRecordingBar';
 import { AudioSettingsModal } from './AudioSettingsModal';
 import { SubtitleDubbingModal } from './SubtitleDubbingModal';
 import { ChannelReorderModal } from './ChannelReorderModal';
+import { QuickChannelBar } from './QuickChannelBar';
 import { isMobileDevice } from '../../utils/device';
 import { ScreenOrientationManager } from '../../utils/orientation';
 import { matchesSearch, matchesItemMetadata } from '../../utils/searchHelper';
@@ -117,6 +118,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
   // 📺 Smart TV Cinema 3-Column States
   const [tvIsFullscreen, setTvIsFullscreen] = useState(false);
   const [tvOsdVisible, setTvOsdVisible] = useState(false);
+  const [showQuickChannelBar, setShowQuickChannelBar] = useState(false);
   const tvOsdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tvFocusedColumn, setTvFocusedColumn] = useState<'categories' | 'channels' | 'preview'>('channels');
   const [tvFocusedCatIndex, setTvFocusedCatIndex] = useState<number>(0);
@@ -628,6 +630,10 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
         setReorderModalOpen(false);
         return;
       }
+      if (showQuickChannelBar) {
+        setShowQuickChannelBar(false);
+        return;
+      }
       if (tvIsFullscreen) {
         setTvIsFullscreen(false);
         return;
@@ -666,13 +672,24 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
         return;
       }
 
-      // Modal open? Let modal handle its own keys
-      if (screenshotModalOpen || audioSettingsOpen || subtitleModalOpen || reorderModalOpen) {
+      // Modal or Quick Channel Bar open? Let it handle its own keys
+      if (screenshotModalOpen || audioSettingsOpen || subtitleModalOpen || reorderModalOpen || showQuickChannelBar) {
         return;
       }
 
       // 2. Fullscreen TV Mode Remote Navigation
       if (tvIsFullscreen) {
+        // Pressing Enter / OK (13) or Space or ChList key (10072, 457, 259) or ArrowLeft -> Opens Quick Channels Bar!
+        if (e.key === 'Enter' || e.keyCode === 13 || e.key === ' ' || e.keyCode === 10072 || e.keyCode === 457 || e.keyCode === 259 || e.key === 'ChannelList') {
+          e.preventDefault();
+          setShowQuickChannelBar(true);
+          return;
+        }
+        if (e.key === 'ArrowLeft' || e.keyCode === 37) {
+          e.preventDefault();
+          setShowQuickChannelBar(true);
+          return;
+        }
         if (e.key === 'ArrowUp' || e.keyCode === 38 || e.keyCode === 427 || e.key === 'PageUp') {
           e.preventDefault();
           handlePrevChannel();
@@ -685,12 +702,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
           showTvOsd();
           return;
         }
-        if (e.key === 'Enter' || e.keyCode === 13 || e.key === ' ') {
-          e.preventDefault();
-          showTvOsd();
-          return;
-        }
-        if (e.key === 'ArrowLeft' || e.keyCode === 37) {
+        if (e.key === 'ArrowRight' || e.keyCode === 39) {
           e.preventDefault();
           setTvIsFullscreen(false);
           return;
@@ -792,6 +804,7 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
     audioSettingsOpen,
     subtitleModalOpen,
     reorderModalOpen,
+    showQuickChannelBar,
     tvIsFullscreen,
     isFullscreen,
     isMobileMode,
@@ -993,6 +1006,18 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
                       title="أبعاد الفيديو (Fill / Fit / Stretch)"
                     >
                       {aspectRatio.toUpperCase()}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowQuickChannelBar(true);
+                        resetMobileOverlayTimer();
+                      }}
+                      className="p-2 rounded-full bg-cyan-500/20 backdrop-blur-md border border-cyan-400/50 text-nova-cyan hover:text-white"
+                      title="شريط القنوات"
+                    >
+                      <Tv className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
@@ -1363,98 +1388,120 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
 
           {/* Fullscreen Cinema OSD Overlay (Visible when in TV Fullscreen) */}
           {tvIsFullscreen && (
-            <div 
-              className={`fixed bottom-0 inset-x-0 z-50 p-6 flex flex-col items-center pointer-events-none transition-all duration-300 ${
-                tvOsdVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-              }`}
-            >
-              <div className="w-full max-w-5xl bg-[#090D18]/95 border border-white/15 rounded-3xl p-5 shadow-2xl pointer-events-auto flex flex-col gap-3">
-                {/* OSD Row 1: Channel & Stream Status */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={activeChannel?.stream_icon}
-                      alt={activeChannel?.name}
-                      className="w-12 h-12 rounded-xl object-cover border border-white/10 bg-black shrink-0"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=100&auto=format&fit=crop&q=60';
-                      }}
-                    />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-nova-cyan bg-cyan-950/60 px-2 py-0.5 rounded-md border border-cyan-500/30">
-                          #{activeChannel?.num}
-                        </span>
-                        <h2 className="text-lg font-extrabold text-white truncate max-w-md">
-                          {activeChannel?.name}
-                        </h2>
-                      </div>
-                      <p className="text-xs font-semibold text-amber-300 mt-0.5 truncate max-w-lg">
-                        {activeChannel?.currentProgram?.title || 'بث مباشر فائق الجودة'}
-                      </p>
-                    </div>
-                  </div>
+            <>
+              {/* Floating Quick Channel Bar Button on Screen Corner */}
+              {!showQuickChannelBar && (
+                <button
+                  type="button"
+                  onClick={() => setShowQuickChannelBar(true)}
+                  className="fixed top-5 right-5 z-50 px-3.5 py-2 rounded-2xl bg-[#090D18]/85 hover:bg-[#090D18] backdrop-blur-xl border border-cyan-500/30 text-white hover:text-nova-cyan text-xs font-bold flex items-center gap-2 shadow-2xl transition-all cursor-pointer group active:scale-95"
+                  title="إظهار شريط القنوات [OK]"
+                >
+                  <Tv className="w-4 h-4 text-nova-cyan group-hover:scale-110 transition-transform" />
+                  <span>شريط القنوات [OK]</span>
+                </button>
+              )}
 
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-mono font-bold">
-                      {activeChannel?.resolution || '4K UHD'}
-                    </span>
-                    <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-xs font-mono">
-                      {activeChannel?.fps || 50} FPS
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-nova-cyan text-xs font-mono font-bold">
-                      {tvTimeStr}
-                    </span>
-                  </div>
-                </div>
-
-                {/* OSD Row 2: Live Progress & Synopsis */}
-                {activeChannel?.currentProgram && (
-                  <div className="space-y-1.5 pt-1 border-t border-white/10">
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                      <span>{activeChannel.currentProgram.start}</span>
-                      <span className="text-slate-300 font-sans font-medium truncate max-w-xl text-center">
-                        {activeChannel.currentProgram.description || 'بث مباشر عبر سيرفر NOVA 4K ULTRA فائق السرعة'}
-                      </span>
-                      <span>{activeChannel.currentProgram.end}</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full transition-all duration-300"
-                        style={{ width: `${activeChannel.currentProgram.progressPercentage || 45}%` }}
+              <div 
+                className={`fixed bottom-0 inset-x-0 z-50 p-6 flex flex-col items-center pointer-events-none transition-all duration-300 ${
+                  tvOsdVisible && !showQuickChannelBar ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'
+                }`}
+              >
+                <div className="w-full max-w-5xl bg-[#090D18]/95 border border-white/15 rounded-3xl p-5 shadow-2xl pointer-events-auto flex flex-col gap-3">
+                  {/* OSD Row 1: Channel & Stream Status */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={activeChannel?.stream_icon}
+                        alt={activeChannel?.name}
+                        className="w-12 h-12 rounded-xl object-cover border border-white/10 bg-black shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?w=100&auto=format&fit=crop&q=60';
+                        }}
                       />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-nova-cyan bg-cyan-950/60 px-2 py-0.5 rounded-md border border-cyan-500/30">
+                            #{activeChannel?.num}
+                          </span>
+                          <h2 className="text-lg font-extrabold text-white truncate max-w-md">
+                            {activeChannel?.name}
+                          </h2>
+                        </div>
+                        <p className="text-xs font-semibold text-amber-300 mt-0.5 truncate max-w-lg">
+                          {activeChannel?.currentProgram?.title || 'بث مباشر فائق الجودة'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-mono font-bold">
+                        {activeChannel?.resolution || '4K UHD'}
+                      </span>
+                      <span className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-xs font-mono">
+                        {activeChannel?.fps || 50} FPS
+                      </span>
+                      <span className="px-2.5 py-1 rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-nova-cyan text-xs font-mono font-bold">
+                        {tvTimeStr}
+                      </span>
                     </div>
                   </div>
-                )}
 
-                {/* OSD Row 3: Remote Control Navigation Hints */}
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-white/5 font-medium">
-                  <div className="flex items-center gap-4">
-                    <span>[▲/▼] تقليب القنوات فورياً</span>
-                    <span>[OK] إظهار / إخفاء الشريط</span>
-                    <span>[عودة / ESC] العودة لدليل القنوات</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setAudioSettingsOpen(true)}
-                      className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] flex items-center gap-1 border border-white/10 transition-all cursor-pointer"
-                    >
-                      <Volume2 className="w-3.5 h-3.5 text-nova-cyan" />
-                      <span>المعلق الصوتي</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSubtitleModalOpen(true)}
-                      className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] flex items-center gap-1 border border-white/10 transition-all cursor-pointer"
-                    >
-                      <Subtitles className="w-3.5 h-3.5 text-purple-400" />
-                      <span>الترجمة</span>
-                    </button>
+                  {/* OSD Row 2: Live Progress & Synopsis */}
+                  {activeChannel?.currentProgram && (
+                    <div className="space-y-1.5 pt-1 border-t border-white/10">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                        <span>{activeChannel.currentProgram.start}</span>
+                        <span className="text-slate-300 font-sans font-medium truncate max-w-xl text-center">
+                          {activeChannel.currentProgram.description || 'بث مباشر عبر سيرفر NOVA 4K ULTRA فائق السرعة'}
+                        </span>
+                        <span>{activeChannel.currentProgram.end}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full transition-all duration-300"
+                          style={{ width: `${activeChannel.currentProgram.progressPercentage || 45}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* OSD Row 3: Remote Control Navigation Hints */}
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-white/5 font-medium">
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowQuickChannelBar(true)}
+                        className="px-3 py-1 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-nova-cyan text-[11px] font-extrabold flex items-center gap-1.5 border border-cyan-400/40 transition-all cursor-pointer shadow-sm active:scale-95"
+                      >
+                        <Tv className="w-3.5 h-3.5" />
+                        <span>شريط القنوات [OK]</span>
+                      </button>
+                      <span>[▲/▼] تقليب فوري</span>
+                      <span>[عودة / ESC] خروج</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAudioSettingsOpen(true)}
+                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] flex items-center gap-1 border border-white/10 transition-all cursor-pointer"
+                      >
+                        <Volume2 className="w-3.5 h-3.5 text-nova-cyan" />
+                        <span>المعلق الصوتي</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSubtitleModalOpen(true)}
+                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] flex items-center gap-1 border border-white/10 transition-all cursor-pointer"
+                      >
+                        <Subtitles className="w-3.5 h-3.5 text-purple-400" />
+                        <span>الترجمة</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            </>
           )}
 
           {/* 1. Cinema Top Header (Hidden when in Fullscreen) */}
@@ -1999,6 +2046,24 @@ export const LiveTvScreen: React.FC<LiveTvScreenProps> = ({ onBackToHome, onOpen
         channels={allChannels}
         categories={categories}
         onSaveOrder={handleSaveReorder}
+      />
+
+      {/* 📺 Quick Channel Bar (Over-the-stream Live Channel Drawer) */}
+      <QuickChannelBar
+        isOpen={showQuickChannelBar}
+        onClose={() => setShowQuickChannelBar(false)}
+        channels={allChannels}
+        categories={tvCategoriesList}
+        selectedCatId={selectedCatId}
+        onSelectCategory={(catId) => setSelectedCatId(catId)}
+        activeChannel={activeChannel}
+        onSelectChannel={(ch) => {
+          setActiveChannel(ch);
+          setShowQuickChannelBar(false);
+          showTvOsd();
+        }}
+        favorites={favorites}
+        onToggleFavorite={toggleFavorite}
       />
 
     </div>

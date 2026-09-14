@@ -41,8 +41,8 @@ if (Get-Command "ares-package" -ErrorAction SilentlyContinue) {
     ares-package $OutputDir -o $OutputDir
     $ipkSuccess = ($LASTEXITCODE -eq 0)
 } else {
-    Write-Host "Packaging with npx @webosose/ares-cli ares-package..." -ForegroundColor Green
-    cmd.exe /c "npx -p @webosose/ares-cli ares-package `"$OutputDir`" -o `"$OutputDir`""
+    Write-Host "Packaging with npx -y @webosose/ares-cli ares-package..." -ForegroundColor Green
+    cmd.exe /c "npx -y -p @webosose/ares-cli ares-package `"$OutputDir`" -o `"$OutputDir`""
     $ipkSuccess = ($LASTEXITCODE -eq 0)
 }
 
