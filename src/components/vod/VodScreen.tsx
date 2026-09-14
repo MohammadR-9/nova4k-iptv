@@ -8,6 +8,7 @@ import { VodItem } from '../../types/iptv.types';
 import { XtreamService } from '../../services/xtream.service';
 import { VodResumeService, ResumePoint } from '../../services/vodResume.service';
 import { spatialNav } from '../../navigation/spatialNav';
+import { TV_KEYS } from '../../navigation/keycodes';
 import { AiMovieAdvisorModal } from './AiMovieAdvisorModal';
 import { isMobileDevice } from '../../utils/device';
 import { matchesSearch, matchesItemMetadata } from '../../utils/searchHelper';
@@ -66,6 +67,9 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
   // Sidebar ref
   const activeCategoryRef = useRef<HTMLButtonElement | null>(null);
 
+  // Focus restoration ref for when details modal opens/closes
+  const lastFocusedCardRef = useRef<string | null>(null);
+
   const toggleFavorite = (streamId: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setFavorites(prev => {
@@ -76,6 +80,98 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
       return updated;
     });
   };
+
+  // When Movie Details Modal opens, set spatial focus directly to the Play button
+  useEffect(() => {
+    if (selectedDetailsMovie) {
+      lastFocusedCardRef.current = spatialNav.getCurrentFocus();
+      const timer = setTimeout(() => {
+        spatialNav.setFocus('vod-modal-play');
+      }, 60);
+      return () => clearTimeout(timer);
+    } else if (lastFocusedCardRef.current) {
+      const idToRestore = lastFocusedCardRef.current;
+      const timer = setTimeout(() => {
+        spatialNav.setFocus(idToRestore);
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedDetailsMovie]);
+
+  // Modal keydown interceptor: Traps D-Pad and Back keys strictly inside the modal
+  useEffect(() => {
+    if (!selectedDetailsMovie) return;
+
+    const handleModalKeyDown = (e: KeyboardEvent) => {
+      const code = e.keyCode || e.which;
+
+      // Close modal on Return / Back / Esc
+      if (
+        code === TV_KEYS.RETURN ||
+        code === TV_KEYS.WEBOS_BACK ||
+        code === TV_KEYS.ESCAPE ||
+        code === TV_KEYS.ANDROID_BACK
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        setSelectedDetailsMovie(null);
+        return;
+      }
+
+      // Enter / OK on currently focused element
+      if (code === TV_KEYS.ENTER || code === TV_KEYS.ANDROID_DPAD_CENTER) {
+        const current = spatialNav.getCurrentFocus();
+        if (current === 'vod-modal-play' || !current) {
+          e.preventDefault();
+          e.stopPropagation();
+          const m = selectedDetailsMovie;
+          setSelectedDetailsMovie(null);
+          onPlayMovie(m);
+          return;
+        } else if (current === 'vod-modal-fav') {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleFavorite(selectedDetailsMovie.stream_id);
+          return;
+        } else if (current === 'vod-modal-close') {
+          e.preventDefault();
+          e.stopPropagation();
+          setSelectedDetailsMovie(null);
+          return;
+        }
+      }
+
+      // Arrow navigation strictly inside modal (Left / Right / Up / Down)
+      if (code === TV_KEYS.LEFT) {
+        e.preventDefault();
+        e.stopPropagation();
+        const current = spatialNav.getCurrentFocus();
+        if (current === 'vod-modal-play') {
+          spatialNav.setFocus('vod-modal-fav');
+        } else if (current === 'vod-modal-fav') {
+          spatialNav.setFocus('vod-modal-close');
+        }
+      } else if (code === TV_KEYS.RIGHT) {
+        e.preventDefault();
+        e.stopPropagation();
+        const current = spatialNav.getCurrentFocus();
+        if (current === 'vod-modal-close' || current === 'vod-modal-fav') {
+          spatialNav.setFocus('vod-modal-play');
+        }
+      } else if (code === TV_KEYS.UP) {
+        e.preventDefault();
+        e.stopPropagation();
+        spatialNav.setFocus('vod-modal-close');
+      } else if (code === TV_KEYS.DOWN) {
+        e.preventDefault();
+        e.stopPropagation();
+        spatialNav.setFocus('vod-modal-play');
+      }
+    };
+
+    window.addEventListener('keydown', handleModalKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleModalKeyDown, { capture: true });
+  }, [selectedDetailsMovie, onPlayMovie]);
 
   useEffect(() => {
     const load = async () => {
@@ -869,8 +965,12 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
 
             {/* Close Button */}
             <button
+              data-nav-id="vod-modal-close"
+              data-nav-group="vod-modal"
+              data-nav-down="vod-modal-play"
+              data-nav-right="vod-modal-play"
               onClick={() => setSelectedDetailsMovie(null)}
-              className="absolute top-4 left-4 z-30 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all cursor-pointer"
+              className="tv-focusable absolute top-4 left-4 z-30 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all cursor-pointer focus:ring-4 focus:ring-nova-cyan"
               title="إغلاق"
             >
               <X className="w-5 h-5" />
@@ -895,10 +995,10 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
                   <span className="px-2.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold font-mono">
                     4K ULTRA HD
                   </span>
-                  <span className="px-2 py-0.5 rounded-md bg-white/10 text-slate-200 text-xs font-bold font-mono">
+                  <span className="px-2.5 py-0.5 rounded-md bg-white/10 text-slate-200 text-xs font-bold font-mono">
                     HDR10+
                   </span>
-                  <span className="px-2 py-0.5 rounded-md bg-white/10 text-slate-200 text-xs font-bold font-mono">
+                  <span className="px-2.5 py-0.5 rounded-md bg-white/10 text-slate-200 text-xs font-bold font-mono">
                     DOLBY 5.1
                   </span>
                   <span className="flex items-center gap-1 bg-amber-500/20 text-accent-gold text-xs font-bold px-2 py-0.5 rounded-md border border-amber-500/30 font-mono">
@@ -941,20 +1041,28 @@ export const VodScreen: React.FC<VodScreenProps> = ({ onBackToHome, onPlayMovie 
               {/* Action Buttons */}
               <div className="flex items-center gap-3 pt-4 border-t border-white/10 flex-wrap">
                 <button
+                  data-nav-id="vod-modal-play"
+                  data-nav-group="vod-modal"
+                  data-nav-left="vod-modal-fav"
+                  data-nav-up="vod-modal-close"
                   onClick={() => {
                     const m = selectedDetailsMovie;
                     setSelectedDetailsMovie(null);
                     onPlayMovie(m);
                   }}
-                  className="px-8 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-nova-cyan hover:from-purple-500 hover:to-cyan-400 text-white font-black text-sm rounded-2xl flex items-center gap-2.5 shadow-lg shadow-purple-600/30 cursor-pointer"
+                  className="tv-focusable px-8 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-nova-cyan hover:from-purple-500 hover:to-cyan-400 text-white font-black text-sm rounded-2xl flex items-center gap-2.5 shadow-lg shadow-purple-600/30 cursor-pointer transition-all transform active:scale-95 focus:ring-4 focus:ring-nova-cyan focus:scale-105"
                 >
                   <Play className="w-4 h-4 fill-current" />
                   <span>تشغيل الفيلم الآن (Play)</span>
                 </button>
 
                 <button
+                  data-nav-id="vod-modal-fav"
+                  data-nav-group="vod-modal"
+                  data-nav-right="vod-modal-play"
+                  data-nav-up="vod-modal-close"
                   onClick={() => toggleFavorite(selectedDetailsMovie.stream_id)}
-                  className={`px-4 py-3 rounded-2xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                  className={`tv-focusable px-4 py-3 rounded-2xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer focus:ring-4 focus:ring-nova-cyan focus:scale-105 ${
                     favorites.includes(selectedDetailsMovie.stream_id)
                       ? 'bg-rose-600/20 border-rose-500 text-rose-300'
                       : 'bg-white/5 hover:bg-white/10 border-white/15 text-white'
