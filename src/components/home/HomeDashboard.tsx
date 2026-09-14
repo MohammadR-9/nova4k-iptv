@@ -95,12 +95,17 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   }, [tickerEvents.length]);
 
   useEffect(() => {
-    // Initial spatial focus on Live TV Grand Portal
+    // Set initial focus on mount ONLY — never re-run (no dependencies)
+    // Prevents focus from jumping back when ticker/state updates fire
     const timer = setTimeout(() => {
-      spatialNav.setFocus('portal-live');
-    }, 150);
+      if (!spatialNav.getCurrentFocus()) {
+        spatialNav.setFocus('portal-live');
+      }
+    }, 200);
     return () => clearTimeout(timer);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // ← empty deps: run once only
+
 
   const [isMobile, setIsMobile] = useState<boolean>(isMobileDevice);
 

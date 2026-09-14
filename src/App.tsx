@@ -317,10 +317,17 @@ export const App: React.FC = () => {
     }
 
     // 4. Inside Account on Home Screen
-    // User requested: "وداخل الحساب يجب ان يظهر تريد الخروج من الحساب"
+    // First go back to previous screen if history exists.
+    // Only show exit modal if there's no history to go back to.
     if (currentScreen === 'home') {
-      setExitModalMode('account-logout');
-      setIsExitModalOpen(true);
+      if (screenHistory.length > 0) {
+        const prev = screenHistory[screenHistory.length - 1];
+        setScreenHistory(h => h.slice(0, -1));
+        setCurrentScreen(prev as ScreenType);
+      } else {
+        setExitModalMode('account-logout');
+        setIsExitModalOpen(true);
+      }
       return;
     }
 

@@ -340,9 +340,10 @@ html[data-device="tv"] * {
   transition-duration: 0.08s !important;
 }
 
-/* Disable blur-3xl decorative background glows on TV */
-html[data-device="tv"] [class*="blur-3xl"],
-html[data-device="tv"] [class*="blur-2xl"] {
+/* Disable ONLY decorative absolute-positioned blur glows on TV (NOT UI containers!) */
+html[data-device="tv"] div[class*="absolute"][class*="blur-3xl"],
+html[data-device="tv"] div[class*="absolute"][class*="blur-2xl"],
+html[data-device="tv"] div[class*="absolute"][class*="blur-\["] {
   display: none !important;
 }
 
